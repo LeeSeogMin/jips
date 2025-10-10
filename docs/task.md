@@ -217,9 +217,9 @@
 
   5.3 Multi-model Comparison
 
-  - GPT-4
-  - Claude-3-sonnet
-  - (선택) Gemini Pro
+  - GPT
+  - Claude
+  - grok 
 
   산출물
 
@@ -299,15 +299,15 @@
 
   ### LLM Evaluation Parameters
 
-  **GPT-4**:
-  - Model: `gpt-4-0613`
+  **GPT**:
+  - Model: ``
   - Temperature: 0.7 (default), [0.0, 0.3, 1.0 for robustness]
   - top_p: 1.0
   - max_tokens: 500
   - Evaluation date: 2024-10-XX to 2024-10-XX
 
-  **Claude-3-Sonnet**:
-  - Model: `claude-3-sonnet-20240229`
+  **Claud**:
+  - Model: ``
   - Temperature: 0.7
   - top_p: 1.0
   - max_tokens: 500
@@ -589,3 +589,22 @@
 
   7. ✅ Phase 1: 메타정보 문서화 (지원 자료)
   8. ✅ Phase 8: Manuscript 통합 업데이트
+
+
+
+
+    논문 manuscript 업데이트가 필요한 경우, phase6_7_8_completion_report.md의      
+  Phase 8 Checklist를 참조하여:
+
+  1. Section 3.1 (Dataset Construction) 업데이트
+  2. Section 3.2 (Embedding Model) 업데이트
+  3. Section 3.3 (Metric Parameters) 업데이트
+  4. Section 4.4 (LLM Evaluation) 업데이트
+  5. Section 5 (Robustness) 추가
+  6. Section 6 (Limitations) 확장
+  7. Appendices B, C, D, E 추가
+  8. 숫자 통일 (unified_statistics.json)
+  9. Related Work 비교
+  10. 약어 정의
+
+  모든 필요한 정보가 생성된 문서에 준비되어 있습니다.
