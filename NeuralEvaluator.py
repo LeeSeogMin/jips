@@ -2,20 +2,30 @@ import torch
 import numpy as np
 from typing import List, Dict, Any, Tuple
 import pickle
+import os
 from scipy.stats import entropy
 from networkx import Graph, pagerank
 from sklearn.metrics.pairwise import cosine_similarity
 import torch.nn.functional as F
 
 class TopicModelNeuralEvaluator:
-    def __init__(self, device=None):
+    def __init__(self, device=None, data_dir='data'):
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+        self.data_dir = data_dir
+
         # Load pre-computed embeddings and topics
         for data_type in ['distinct', 'similar', 'more_similar']:
-            with open(f'data/embeddings_{data_type}.pkl', 'rb') as f:
+            embeddings_path = os.path.join(self.data_dir, f'embeddings_{data_type}.pkl')
+            topics_path = os.path.join(self.data_dir, f'topics_{data_type}.pkl')
+
+            if not os.path.exists(embeddings_path):
+                raise FileNotFoundError(f"Required embeddings file not found: {embeddings_path}")
+            if not os.path.exists(topics_path):
+                raise FileNotFoundError(f"Required topics file not found: {topics_path}")
+
+            with open(embeddings_path, 'rb') as f:
                 setattr(self, f'embeddings_{data_type}', torch.tensor(pickle.load(f)).to(self.device))
-            with open(f'data/topics_{data_type}.pkl', 'rb') as f:
+            with open(topics_path, 'rb') as f:
                 setattr(self, f'topics_{data_type}', pickle.load(f))
 
     def _get_keyword_embeddings(self, keyword: str) -> List[torch.Tensor]:
