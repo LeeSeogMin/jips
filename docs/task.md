@@ -58,38 +58,49 @@
   data/topics_distinct.pkl
   data/bert_outputs_distinct.pkl
 
-  2.3 LLM 평가 재실행 (4-LLM Framework)
+  2.3 LLM 기반 평가 재실행
+
+  **2개의 독립적인 LLM 평가 시스템**:
+
+  **A. 토픽 모델링 지표 평가 (Topic Metrics Evaluation)**
 
   실행 스크립트:
-  - llm_analyzers/openai_analyzer.py (GPT-4.1)
-  - llm_analyzers/anthropic_analyzer.py (Claude Sonnet 4.5)
-  - llm_analyzers/gemini_analyzer.py (Gemini 2.5 Flash)
-  - llm_analyzers/grok_analyzer.py (Grok 4)
+  - llm_analyzers/openai_topic_evaluator.py (GPT-4.1)
+  - llm_analyzers/anthropic_topic_evaluator.py (Claude Sonnet 4.5)
+  - llm_analyzers/gemini_topic_evaluator.py (Gemini 2.5 Flash)
+  - llm_analyzers/grok_topic_evaluator.py (Grok 4)
 
-  **최신 모델 사용**:
+  사용 모델 (4-LLM Framework):
   1. **OpenAI GPT-4.1** (`gpt-4.1`)
   2. **Anthropic Claude Sonnet 4.5** (`claude-sonnet-4-5-20250929`)
   3. **Google Gemini 2.5 Flash** (`gemini-2.5-flash-preview-09-2025`)
   4. **xAI Grok 4** (`grok-4-0709`)
 
-  평가 항목:
-  - Coherence, Distinctiveness, Diversity, Integration (4가지 차원)
-  - **4개 LLM 동시 평가** (이전: 2개)
-  - **Multi-model Cohen's κ 계산** (4×4 agreement matrix)
-  - **Fleiss' κ 추가** (3개 이상 평가자용)
+  평가 내용:
+  - Coherence, Distinctiveness, Diversity, Semantic Integration (4가지 차원)
+  - 토픽 키워드 세트에 대한 품질 평가
+  - 4개 LLM의 평가 점수 및 설명 생성
+  - Multi-model Cohen's κ 계산 (4×4 agreement matrix)
+  - Fleiss' κ 추가 (4개 평가자용)
+
+  입력 데이터:
+  - data/topics_distinct.pkl
+  - data/topics_similar.pkl
+  - data/topics_more_similar.pkl
 
   새로운 요구사항:
   - **Temperature 테스트**: 0.0, 0.3, 0.7, 1.0 (각 모델별)
   - **Prompt variants**: 3개 버전 (모든 모델 동일 프롬프트)
   - **Multi-run**: 각 조건당 3회 실행 (재현성 검증)
-  - **Model-specific optimization**: 각 모델 API 특성 반영
 
   산출물
 
+  - data/openai_evaluation_results.pkl: OpenAI 평가 결과
+  - data/anthropic_evaluation_results.pkl: Claude 평가 결과
+  - data/gemini_evaluation_results.pkl: Gemini 평가 결과
+  - data/grok_evaluation_results.pkl: Grok 평가 결과
   - recalculated_metrics.csv: 모든 지표 통합 결과
-  - statistical_results.json: Statistical metrics
-  - semantic_results.json: Semantic metrics
-  - llm_evaluation_results.json: LLM scores + κ
+  - llm_agreement_metrics.json: Cohen's κ (4×4) & Fleiss' κ
 
   ---
   🔢 Phase 3: 숫자 통일 (1시간)
@@ -219,6 +230,46 @@
     - Model agreement 분석
     - Disagreement case 분석
 
+  5.4 LLM Limitations 논의
+
+  ### LLM Bias and Hallucination Risks
+
+  **LLM Bias Analysis**:
+  1. **Domain Bias**:
+     - LLM이 특정 학문 분야에 편향될 수 있음
+     - 예: 컴퓨터과학 토픽에 더 높은 점수 부여 가능성
+  2. **Length Bias**:
+     - 키워드 수가 많은 토픽에 유리할 수 있음
+     - 분석: 키워드 수 vs LLM 점수 상관관계 검증
+
+  **Hallucination Risk**:
+  1. **전문 도메인 위험성**:
+     - LLM이 생소한 전문 용어 조합을 잘못 해석
+     - 예: 의학, 법률 등 전문 분야 토픽
+  2. **평가 근거 검증**:
+     - LLM 설명(explanation)의 타당성 검증 필요
+
+  **Mitigation Strategies**:
+  1. **Multi-model Consensus**:
+     - 4개 LLM 평가 결과 교차 검증
+     - Fleiss' κ로 평가자 간 일치도 측정
+  2. **Statistical Validation**:
+     - LLM 평가와 전통적 지표 간 상관관계 검증
+     - r(semantic-LLM), r(traditional-LLM) 분석
+  3. **Human Validation** (선택적):
+     - 불일치 케이스에 대한 전문가 검증
+
+  **Section 6 Limitations 추가 내용**:
+  - LLM 고유의 편향성(bias) 및 환각(hallucination) 가능성
+  - 전문 도메인에서의 평가 정확도 한계
+  - Multi-model consensus를 통한 완화 전략 적용
+
+  산출물
+
+  - llm_bias_analysis.md: 편향성 분석 결과
+  - hallucination_cases.md: 환각 사례 분석
+  - mitigation_effectiveness.csv: 완화 전략 효과 검증
+
   ---
   📖 Phase 6: 재현성 보고서 작성 (2시간)
 
@@ -276,7 +327,7 @@
   **Query Strategy**: Topic-based seed page crawling
 
   **Distinct Dataset**:
-  - Seed topics: ["Evolution", "Classical_mechanics", "Molecular_biology", ...]     
+  - Seed topics: ["Evolution", "Classical_mechanics", "Molecular_biology", ...]
   - Filter: Scientific domain, min 20 words, max 500 words
   - Total: 3,445 documents, 15 topics
 
@@ -287,11 +338,34 @@
   4. Length filtering: 20-500 words
   5. Duplicate removal: Cosine similarity < 0.9
 
+  6.4 Visualization Parameters
+
+  ### t-SNE Hyperparameters
+
+  **t-SNE Configuration**:
+  - perplexity: 30
+  - learning_rate: 200
+  - n_iter: 1000
+  - random_state: 42
+  - metric: cosine
+
+  **UMAP Comparison** (Alternative visualization):
+  - n_neighbors: 15
+  - min_dist: 0.1
+  - metric: cosine
+  - random_state: 42
+
+  **Stability Verification**:
+  - Multiple seeds: [42, 123, 456]
+  - Visual consistency check across seeds
+  - Report any significant layout variations
+
   산출물
 
   - reproducibility_guide.md: 완전 재현 가이드
   - requirements.txt: 모든 의존성 버전
   - reproduction_script.py: 1-click 재현 스크립트
+  - visualization_parameters.json: t-SNE & UMAP 설정
 
   ---
   📝 Phase 7: Toy Example 생성 (1-2시간)
@@ -367,6 +441,81 @@
   - Appendix D: Dataset Construction Details
   - Appendix E: Reproducibility Checklist
 
+  8.9 Related Work 강화
+
+  ### Section 2.2 업데이트: Related Work 차별성 명확화
+
+  **Ref. 15 (LLM-based Evaluation) vs 본 연구 비교**:
+
+  | 측면 | Ref. 15 | 본 연구 |
+  |------|---------|---------|
+  | 평가 방식 | LLM 단독 평가 | Statistical + Semantic + LLM 통합 |
+  | 검증 방법 | 단일 모델 | 4-LLM consensus (Fleiss' κ) |
+  | 메트릭 범위 | LLM 주관 평가 | 12개 지표 (통계 6 + 의미 3 + LLM 3) |
+  | 재현성 | 제한적 | 완전 재현 가능 (상세 파라미터 명시) |
+  | Robustness | 미검증 | Temperature/Prompt sensitivity 테스트 |
+
+  **본 연구의 차별점 및 중요성**:
+  1. **Comprehensive Validation**:
+     - 단일 방법론이 아닌 3가지 접근법 교차 검증
+     - Statistical (NPMI, C_v) + Semantic (SC, SD) + LLM (4-model consensus)
+  2. **Multi-model Consensus**:
+     - Ref. 15는 단일 LLM 의존
+     - 본 연구는 4개 LLM 평가자 간 일치도(Fleiss' κ) 측정
+  3. **Reproducibility**:
+     - Embedding model, LLM parameters, dataset construction 완전 명시
+     - Ref. 15는 재현성 정보 제한적
+  4. **Robustness Analysis**:
+     - Temperature sensitivity, prompt variants 체계적 테스트
+     - Ref. 15는 robustness 미검증
+
+  **Why More Important**:
+  - 실무 적용 시 신뢰성: 다층 검증으로 평가 신뢰도 향상
+  - 재현 가능성: 완전한 재현 가이드로 후속 연구 촉진
+  - 비용-효과: LLM 단독보다 statistical/semantic 병행으로 비용 절감
+
+  산출물
+
+  - related_work_comparison.md: Ref. 15와의 상세 비교표
+  - differentiation_rationale.md: 차별성 및 중요성 논거
+
+  8.10 Terminology Consistency
+
+  ### 약어 및 전문 용어 검증
+
+  **약어 정의 체크리스트**:
+
+  | 약어 | 전체 명칭 | 첫 사용 위치 | 정의 여부 |
+  |------|-----------|-------------|-----------|
+  | NPMI | Normalized Pointwise Mutual Information | Section 3.1 | ✓ 확인 필요 |
+  | IRBO | Inverted Rank-Biased Overlap | Section 3.1 | ✓ 확인 필요 |
+  | RBO | Rank-Biased Overlap | Section 3.1 | ✓ 확인 필요 |
+  | SC | Semantic Coherence | Section 3.2 | ✓ 확인 필요 |
+  | SD | Semantic Distinctiveness | Section 3.2 | ✓ 확인 필요 |
+  | SemDiv | Semantic Diversity | Section 3.2 | ✓ 확인 필요 |
+  | LLM | Large Language Model | Abstract | ✓ 확인 필요 |
+  | BERTopic | BERT-based Topic Model | Section 2.1 | ✓ 확인 필요 |
+
+  **검증 절차**:
+  1. Manuscript 전체 텍스트 검색
+  2. 각 약어의 첫 등장 위치 확인
+  3. 첫 사용 시 full name 정의 여부 체크
+  4. 정의 누락 시 추가
+
+  **예시 수정**:
+  ```
+  AS-IS:
+  "We use IRBO to measure topic diversity..."
+
+  TO-BE:
+  "We use Inverted Rank-Biased Overlap (IRBO) to measure topic diversity..."
+  ```
+
+  산출물
+
+  - terminology_checklist.csv: 모든 약어 검증 결과
+  - abbreviation_definitions.md: 약어 전체 목록 및 정의
+
   ---
   📦 최종 산출물 체크리스트
 
@@ -386,16 +535,23 @@
   - toy_examples.md: 계산 예시
   - llm_robustness_analysis.md: Robustness 분석
   - number_verification_report.md: 숫자 검증
+  - visualization_parameters.json: t-SNE & UMAP 설정
+  - llm_bias_analysis.md: LLM 편향성 분석
+  - hallucination_cases.md: 환각 사례 분석
+  - related_work_comparison.md: Ref. 15 비교
+  - terminology_checklist.csv: 약어 검증 결과
 
   Manuscript Updates
 
+  - Section 2.2: Related Work 차별성 명확화 (Phase 8.9)
   - Section 3.1: Dataset construction details
   - Section 3.2: Embedding model specification
   - Section 3.3: Metric parameters
   - Section 4.4: LLM evaluation details
   - Section 5: Robustness discussion
-  - Section 6: Extended limitations
+  - Section 6: Extended limitations (LLM bias/hallucination 추가)
   - All numerical values unified
+  - All abbreviations defined at first use (Phase 8.10)
   - Appendices B, C, D, E added
 
   ---

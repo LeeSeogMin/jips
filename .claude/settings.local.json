@@ -9,7 +9,21 @@
       "Bash(git commit:*)",
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(venvScripts:*)",
+      "Bash(./venv/Scripts/activate)",
+      "Bash(python3.11:*)",
+      "Bash(python3.10:*)",
+      "Bash(where python)",
+      "Bash(conda create:*)",
+      "Bash(conda activate:*)",
+      "Bash(conda install:*)",
+      "Bash(C:Usersuserminiconda3envsjipsScriptsactivate.bat)",
+      "Bash(source:*)",
+      "Bash(timeout 600 python openai_topic_evaluator.py)",
+      "Bash(tee:*)",
+      "Bash(timeout:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

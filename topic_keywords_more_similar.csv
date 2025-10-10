@@ -1,0 +1,17 @@
+,Keyword 1,Keyword 2,Keyword 3,Keyword 4,Keyword 5,Keyword 6,Keyword 7,Keyword 8,Keyword 9,Keyword 10
+Topic 1,bigdata,data,datafication,datathe,datamining,datasets,analytics,dataintensive,dataflow,mapreduce
+Topic 2,speechrecognition,voicerecognition,speechtotext,speechtek,speech,vocalization,dictation,phoneticbased,voicecontrolled,voicebased
+Topic 3,ai,humancomputer,superintelligence,algorithmic,decisionmaking,intelligence,aiguided,computationalism,machinelearning,computational
+Topic 4,sentiment,affective,subjectiveness,subjectivity,subjectivityobjectivity,linguistic,emotionssentiments,nlp,subjective,annotating
+Topic 5,reinforcement,explorationexploitation,adaptive,planning,stateaction,optimality,optimal,adaptively,learns,optimize
+Topic 6,deeplearning,backpropagationtrained,neural,deepmind,learningtrained,rnns,learningbased,autoencoders,backpropagation,machinelearning
+Topic 7,classifier,machinelearning,classification,supervisedlearning,classifying,supervised,classify,learning,learns,datasets
+Topic 8,datasets,discovering,datamining,dataset,data,classification,analytics,discovery,datadvance,clustering
+Topic 9,imaging,pixelation,pixellate,photographic,pixel,imageimageimageimageimageimageimageimageimage,photography,image,camera,jpeg
+Topic 10,recognition,vision,detectionsegmentation,visionbased,computervision,photogrammetry,visionrelated,imaging,stereophotogrammetry,segmentation
+Topic 11,schema,semantic,ontologybased,ontology,entityrelationship,metadata,semantics,entity,relational,dbpedia
+Topic 12,retrieval,search,searching,indexing,corpus,metadata,ranking,semantic,relevance,catalog
+Topic 13,corpus,linguistics,linguistic,semantic,textual,parsing,nlp,wordnet,lexical,naturallanguage
+Topic 14,classifying,classification,classifier,patternrecognition,supervised,recognition,machinelearning,recognizer,patternmatching,labeling
+Topic 15,textanalytics,textual,wordnet,corpus,textbased,analytics,text,retrieval,semantic,miningspecific
+Topic 16,humancomputer,cognitive,intelligencecognitive,computing,ai,automation,intelligence,technology,processing,brainmind
