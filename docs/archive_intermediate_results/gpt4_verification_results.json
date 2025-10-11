@@ -1,0 +1,128 @@
+{
+  "verified_issues": [
+    {
+      "issue_id": "R1_C5",
+      "category": "MINOR",
+      "location": "Tables and Figures",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 requested improved table/figure clarity and reporting of t-SNE/UMAP parameters.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R1_C7",
+      "category": "MINOR",
+      "location": "Appendix",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 requested runnable code examples in addition to pseudocode.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R1_C8",
+      "category": "MINOR",
+      "location": "Throughout",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 requested language polish.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "issue_id": "R1_C9",
+      "category": "MINOR",
+      "location": "Conclusion",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 requested explicit listing of limitations and future work.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R2_C1",
+      "category": "MAJOR",
+      "location": "Experiments/Results",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 2 requested at least one public real-world dataset.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R2_C2",
+      "category": "MINOR",
+      "location": "Related Work (§2.2)",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 2 requested clarification of how the proposed metric differs from prior LLM-based evaluation.",
+      "confidence": "HIGH"
+    }
+  ],
+  "false_positives": [
+    {
+      "issue_id": "R1_C1",
+      "category": "MAJOR",
+      "location": "Abstract, Results, Conclusion, Table/Metric Reporting",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 and 2 both noted inconsistent numbers for κ and r across sections. All values must be unified and computation methods clarified.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R1_C2",
+      "category": "MAJOR",
+      "location": "Methods (Section 3), Appendix A, Dataset Description",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 requested full methodological detail for reproducibility, including model, hyperparameters, LLM call details, and dataset construction.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R1_C3",
+      "category": "MAJOR",
+      "location": "Methods (Section 3.3), Appendix",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 and 2 requested full mathematical specification, parameter values, and a worked example for custom metrics.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R1_C4",
+      "category": "MAJOR",
+      "location": "Discussion (Section 5), Results, Appendix",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 requested explicit acknowledgment of LLM limitations and robustness/sensitivity analysis.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R1_C6",
+      "category": "MINOR",
+      "location": "Throughout (global search)",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 1 requested abbreviation consistency.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R2_C3",
+      "category": "MAJOR",
+      "location": "Methods (§3.3)",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 2 requested explicit reporting of model, λw, and parameter values.",
+      "confidence": "HIGH"
+    },
+    {
+      "issue_id": "R2_C4",
+      "category": "MAJOR",
+      "location": "Conclusion, Results",
+      "current_text": "",
+      "required_fix": "",
+      "reasoning": "Reviewer 2 requested consistency in reported numbers.",
+      "confidence": "HIGH"
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "valid": 6,
+    "false_positive": 7
+  }
+}

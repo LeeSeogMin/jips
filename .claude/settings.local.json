@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/c/Users/user/miniconda3/envs/jips/python.exe validate_manuscript_updates.py \"docs/manuscript_FINAL_100percent_20251011_130752.docx\")"
+      "Bash(/c/Users/user/miniconda3/envs/jips/python.exe -c \"\nfrom docx import Document\n\ndoc = Document(''docs/manuscript_FINAL_20251011_135649.docx'')\nfull_text = ''\\n''.join([p.text for p in doc.paragraphs])\n\n# Find research contributions\ncontrib_start = full_text.lower().find(''our contributions'')\nif contrib_start == -1:\n    contrib_start = full_text.lower().find(''contribution'')\n\nif contrib_start != -1:\n    print(''=''*70)\n    print(''RESEARCH CONTRIBUTIONS'')\n    print(''=''*70)\n    contrib_section = full_text[contrib_start:contrib_start+2000]\n    print(contrib_section)\n\")"
     ],
     "deny": [],
     "ask": []
