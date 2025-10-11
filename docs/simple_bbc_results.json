@@ -1,0 +1,67 @@
+{
+  "dataset": {
+    "name": "20 Newsgroups (5 top-level categories)",
+    "num_documents": 5000,
+    "num_categories": 5,
+    "categories": [
+      "Computer",
+      "Recreation",
+      "Science",
+      "Politics",
+      "ForSale"
+    ]
+  },
+  "model": {
+    "type": "TF-IDF + K-Means",
+    "num_topics": 5,
+    "vocabulary_size": 5000
+  },
+  "statistical_metrics": {
+    "coherence": -2.0633607024469294,
+    "topic_diversity": 0.86,
+    "per_topic": [
+      -2.0225999709878155,
+      -2.0804232269314316,
+      -2.4902123718632985,
+      -1.6379319063008047,
+      -2.0856360361512962
+    ]
+  },
+  "semantic_metrics": {
+    "coherence": 0.35027792271041386,
+    "distinctiveness": 0.2611311078071594,
+    "semdiv": 0.3057045152587866,
+    "per_topic": [
+      0.3406716051330197,
+      0.30085309452837755,
+      0.30904172280370323,
+      0.34196344958116265,
+      0.4588597415058059
+    ]
+  },
+  "ground_truth": {
+    "avg_purity": 0.6640324751199881,
+    "per_topic": [
+      0.2552083333333333,
+      0.865874363327674,
+      0.7944621938232161,
+      0.4551792828685259,
+      0.949438202247191
+    ]
+  },
+  "correlations": {
+    "statistical_vs_purity": {
+      "r": -0.4780081042415746,
+      "p": 0.4154260809004696
+    },
+    "semantic_vs_purity": {
+      "r": 0.28379895262056754,
+      "p": 0.6435668592614558
+    }
+  },
+  "discrimination_power": {
+    "statistical_range": 0.8522804655624938,
+    "semantic_range": 0.15800664697742833,
+    "ratio": 0.1853927824957786
+  }
+}
