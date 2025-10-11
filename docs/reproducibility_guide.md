@@ -5,6 +5,46 @@
 
 ---
 
+## 0. Environment Setup
+
+### 0.1 Python Environment (Conda)
+
+**Recommended**: Use conda virtual environment for reproducibility
+
+**Environment Name**: `jips`
+**Python Version**: 3.11.13
+
+**Setup Instructions**:
+
+```bash
+# Install Miniconda (if not already installed)
+# Download from: https://docs.conda.io/en/latest/miniconda.html
+
+# Create virtual environment
+conda create -n jips python=3.11.13 -y
+
+# Activate environment
+conda activate jips
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**Verify Installation**:
+
+```bash
+python --version  # Should show: Python 3.11.13
+pip list | grep -E "(sentence-transformers|torch|scikit-learn)"
+# Expected output:
+# sentence-transformers    5.1.1
+# torch                    2.8.0
+# scikit-learn             1.7.1
+```
+
+**Environment Location**: `C:\Users\user\miniconda3\envs\jips` (Windows) or `~/miniconda3/envs/jips` (Linux/macOS)
+
+---
+
 ## 1. Embedding Model Specification
 
 ### 1.1 Model Details
@@ -13,7 +53,7 @@
 
 | Property | Value |
 |----------|-------|
-| **Version** | v2.2.0 |
+| **Version** | v5.1.1 |
 | **Architecture** | DistilBERT-based sentence transformer |
 | **Embedding Dimensions** | 384 |
 | **Max Sequence Length** | 256 tokens |
@@ -83,8 +123,9 @@ def get_embeddings(df, filename):
 **Installation**:
 
 ```bash
-pip install sentence-transformers==2.2.0
-pip install torch==1.13.1  # or latest compatible version
+pip install sentence-transformers==5.1.1
+pip install torch==2.8.0
+pip install transformers==4.57.0
 ```
 
 **Basic Usage**:
@@ -427,7 +468,7 @@ tsne_distinct = TSNE(n_components=2, random_state=42)
 tsne_results_distinct = tsne_distinct.fit_transform(embeddings_distinct)
 ```
 
-**Default Parameters** (from sklearn 1.3.0):
+**Default Parameters** (from sklearn 1.7.1):
 
 | Parameter | Value | Description | Rationale |
 |-----------|-------|-------------|-----------|
@@ -532,18 +573,19 @@ for i in range(len(seeds)-1):
 
 ```txt
 # requirements.txt
-sentence-transformers==2.2.0
-torch==1.13.1
-transformers==4.35.0
-scikit-learn==1.3.0
-numpy==1.24.3
-pandas==2.0.3
-scipy==1.11.1
-networkx==3.1
-matplotlib==3.7.2
-openai==1.3.0
-anthropic==0.7.0
-python-dotenv==1.0.0
+sentence-transformers==5.1.1
+torch==2.8.0
+transformers==4.57.0
+scikit-learn==1.7.1
+numpy==1.26.4
+pandas==2.3.3
+scipy==1.13.1
+networkx==3.5
+gensim==4.3.3
+openai==2.3.0
+anthropic==0.69.0
+python-dotenv==1.1.1
+google-generativeai==0.8.5
 ```
 
 **Installation**:
@@ -567,8 +609,9 @@ pip install -r requirements.txt
 
 **Tested Environments**:
 - **OS**: Windows 10/11, Ubuntu 20.04/22.04, macOS 12+
-- **Python**: 3.10 or 3.11
+- **Python**: 3.11.13 (via conda/miniconda3)
 - **CUDA**: 11.7 or later (for GPU acceleration)
+- **Environment**: Conda virtual environment `jips` (recommended)
 
 ---
 
@@ -592,7 +635,7 @@ pip install -r requirements.txt
 
 ### ✅ Complete Specifications
 
-- [x] Embedding model: `all-MiniLM-L6-v2` (v2.2.0, 384-dim)
+- [x] Embedding model: `all-MiniLM-L6-v2` (v5.1.1, 384-dim)
 - [x] Tokenizer: WordPiece (bert-base-uncased)
 - [x] Pre-processing: No stopword removal, no lemmatization
 - [x] LLM APIs: OpenAI GPT-4.1, Anthropic Claude Sonnet 4.5, xAI Grok
@@ -602,6 +645,7 @@ pip install -r requirements.txt
 - [x] Topic count: 15 topics per dataset
 - [x] Metric parameters: γ=0.7/0.3, threshold=0.3, α=β=0.5
 - [x] Visualization: t-SNE (perplexity=30, learning_rate=200, random_state=42)
+- [x] Python environment: 3.11.13 via conda (`jips` environment)
 
 ### ✅ Code References
 
@@ -624,11 +668,18 @@ pip install -r requirements.txt
 
 ### 7.1 Quick Start
 
-**Step 1**: Clone repository and install dependencies
+**Step 1**: Set up conda environment and install dependencies
 
 ```bash
+# Create and activate conda environment
+conda create -n jips python=3.11.13 -y
+conda activate jips
+
+# Clone repository
 git clone https://github.com/[username]/topic-model-evaluation.git
 cd topic-model-evaluation
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
