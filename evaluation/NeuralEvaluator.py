@@ -92,7 +92,7 @@ class TopicModelNeuralEvaluator:
         return float(outlier_ratio)
 
     def _calculate_coherence_score(self, topic_keywords: List[str]) -> float:
-        """토픽 일관성 점수 계산"""
+        """토픽 일관성 점수 계산 (OLD method: PageRank + Hierarchical Similarity)"""
         if len(topic_keywords) < 2:
             return 0.0
 
@@ -107,48 +107,50 @@ class TopicModelNeuralEvaluator:
             return 0.0
 
         embeddings_tensor = torch.stack(embeddings)
+        n_keywords = len(embeddings)
 
-        # 페어와이즈 유사도 계산
-        similarities = F.cosine_similarity(
-            embeddings_tensor.unsqueeze(1),
-            embeddings_tensor.unsqueeze(0),
-            dim=2
-        )
+        # 1. 의미 그래프 구축 및 PageRank로 중요도 계산
+        from networkx import Graph, pagerank
+        from sklearn.metrics.pairwise import cosine_similarity
 
-        # 상위 키워드들의 평균 유사도 (더 높은 가중치)
-        top_k = min(5, len(embeddings))
-        top_similarities = similarities[:top_k, :top_k]
-        top_sim_score = torch.mean(top_similarities)
+        similarities = cosine_similarity(embeddings_tensor.cpu().numpy())
+        graph = Graph()
 
-        # 전체 키워드 간의 평균 유사도
-        all_sim_score = torch.mean(similarities)
+        # 그래프 구축 (임계값 기반 엣지 생성)
+        for i in range(n_keywords):
+            for j in range(i + 1, n_keywords):
+                if similarities[i, j] > 0.3:
+                    graph.add_edge(i, j, weight=float(similarities[i, j]))
 
-        # 유사도의 일관성 (표준편차 활용)
-        sim_std = torch.std(similarities)
-        consistency_score = 1.0 / (1.0 + sim_std)  # 표준편차가 클수록 점수 감소
+        # PageRank로 키워드 중요도 계산
+        try:
+            importance_scores = pagerank(graph)
+        except:
+            # 그래프가 비어있거나 연결되지 않은 경우 균등 분포
+            importance_scores = {i: 1.0/n_keywords for i in range(n_keywords)}
 
-        # 기본 일관성 점수 계산
-        base_coherence = (
-            0.5 * top_sim_score +      # 상위 키워드 유사도
-            0.3 * all_sim_score +      # 전체 유사도
-            0.2 * consistency_score    # 일관성
-        )
+        # 2. 계층적 유사도 계산 (직접적 + 간접적 유사도)
+        direct_sim = torch.tensor(similarities, device=self.device)
 
-        # 구조적 패널티 계산
-        structural_penalty = 0.0
-        
-        # 상위 키워드와 나머지 키워드 간의 유사도 차이가 너무 크면 패널티
-        if len(embeddings) > 5:
-            top_rest_sim = torch.mean(similarities[:5, 5:])
-            sim_gap = top_sim_score - top_rest_sim
-            if sim_gap > 0.3:  # 차이가 큰 경우
-                structural_penalty = min(0.3, sim_gap - 0.3)
+        # 간접적 유사도 (2차 관계까지)
+        indirect_sim = torch.matmul(direct_sim, direct_sim) / n_keywords
 
-        # 최종 점수 계산
-        final_coherence = base_coherence * (1.0 - structural_penalty)
+        # 직접적 유사도와 간접적 유사도 결합 (0.7:0.3 비율)
+        hierarchical_sim = 0.7 * direct_sim + 0.3 * indirect_sim
+
+        # 3. 중요도 가중치 행렬 생성
+        importance_matrix = np.array([[importance_scores.get(i, 1.0/n_keywords) *
+                                      importance_scores.get(j, 1.0/n_keywords)
+                                      for j in range(n_keywords)]
+                                     for i in range(n_keywords)])
+
+        # 4. 가중치가 적용된 일관성 점수 계산
+        weighted_similarities = hierarchical_sim.cpu().numpy()
+        coherence_score = (weighted_similarities * importance_matrix).sum() / \
+                         (importance_matrix.sum() + 1e-10)  # 0으로 나누는 것 방지
 
         # 0~1 범위로 제한
-        return float(min(1.0, max(0.0, final_coherence)))
+        return float(min(1.0, max(0.0, coherence_score)))
 
     def _calculate_distinctiveness_score(self, topic1: List[str], topic2: List[str]) -> float:
         """토픽 간 구별성 점수 계산"""
@@ -206,14 +208,14 @@ class TopicModelNeuralEvaluator:
             return {'topic_distinctiveness': [], 'average_distinctiveness': 0.0}
 
         distinctiveness_scores = []
-        
+
         for i, topic1 in enumerate(topics):
             topic_scores = []
             for j, topic2 in enumerate(topics):
                 if i != j:
                     distinctiveness = self._calculate_distinctiveness_score(topic1, topic2)
                     topic_scores.append(distinctiveness)
-                    
+
             if topic_scores:
                 distinctiveness_scores.append(float(np.mean(topic_scores)))
 
@@ -222,35 +224,70 @@ class TopicModelNeuralEvaluator:
             'average_distinctiveness': float(np.mean(distinctiveness_scores)) if distinctiveness_scores else 0.0
         }
 
+    def evaluate_topic_diversity(self, topics: List[List[str]]) -> Dict[str, Any]:
+        """토픽 다양성 평가 (Topic Diversity)
+
+        TD = unique words / total words
+        토픽 간 중복되지 않는 고유 단어의 비율을 측정
+        """
+        if not topics:
+            return {'diversity': 0.0}
+
+        all_words = set()
+        total_words = 0
+
+        for topic_keywords in topics:
+            all_words.update(topic_keywords)
+            total_words += len(topic_keywords)
+
+        diversity = len(all_words) / total_words if total_words > 0 else 0.0
+
+        return {
+            'diversity': float(diversity),
+            'unique_words': len(all_words),
+            'total_words': total_words
+        }
+
     def evaluate(self, topics: List[List[str]], docs: List[str]) -> Dict[str, Any]:
         """통합 평가 수행"""
         try:
             coherence_result = self.evaluate_topic_coherence(topics)
             distinctiveness_result = self.evaluate_topic_distinctiveness(topics)
-            
+            diversity_result = self.evaluate_topic_diversity(topics)
+
             raw_scores = {
                 'coherence': coherence_result['average_coherence'],
-                'distinctiveness': distinctiveness_result['average_distinctiveness']
+                'distinctiveness': distinctiveness_result['average_distinctiveness'],
+                'diversity': diversity_result['diversity']
             }
-            
+
             weights = {
-                'coherence': 0.6,      # 일관성에 더 큰 가중치
-                'distinctiveness': 0.4  # 구별성
+                'coherence': 0.5,       # 일관성
+                'distinctiveness': 0.3,  # 구별성
+                'diversity': 0.2         # 다양성
             }
-            
+
             weighted_scores = {
                 'coherence': raw_scores['coherence'] * weights['coherence'],
-                'distinctiveness': raw_scores['distinctiveness'] * weights['distinctiveness']
+                'distinctiveness': raw_scores['distinctiveness'] * weights['distinctiveness'],
+                'diversity': raw_scores['diversity'] * weights['diversity']
             }
-            
-            overall_score = weighted_scores['coherence'] + weighted_scores['distinctiveness']
+
+            overall_score = (weighted_scores['coherence'] +
+                           weighted_scores['distinctiveness'] +
+                           weighted_scores['diversity'])
 
             return {
                 'raw_scores': raw_scores,
                 'weighted_scores': weighted_scores,
                 'overall_score': overall_score,
                 'topic_coherence': coherence_result['topic_coherence'],
-                'topic_distinctiveness': distinctiveness_result['topic_distinctiveness']
+                'topic_distinctiveness': distinctiveness_result['topic_distinctiveness'],
+                'diversity_info': {
+                    'diversity': diversity_result['diversity'],
+                    'unique_words': diversity_result['unique_words'],
+                    'total_words': diversity_result['total_words']
+                }
             }
 
         except Exception as e:

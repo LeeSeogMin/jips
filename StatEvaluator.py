@@ -2,7 +2,6 @@ import numpy as np
 import math
 from typing import List, Dict, Any
 from itertools import combinations
-from gensim.models.coherencemodel import CoherenceModel
 from collections import Counter
 
 class TopicModelStatEvaluator:
@@ -88,21 +87,109 @@ class TopicModelStatEvaluator:
            'average_coherence': float(np.mean(normalized_coherences))
        }
 
-   def _evaluate_topic_diversity(self, topics: List[List[str]]) -> Dict[str, float]:
-       # 토픽별 단어 출현 빈도 계산
-       topic_word_freq = {}
-       for topic_idx, topic in enumerate(topics):
-           for word in topic:
-               if word not in topic_word_freq:
-                   topic_word_freq[word] = set()
-               topic_word_freq[word].add(topic_idx)
-       
-       # 단어별 토픽 출현 수 기반 다양성 계산
-       total_possible_occurrences = len(topics) * len(topic_word_freq)
-       actual_occurrences = sum(len(topics_set) for topics_set in topic_word_freq.values())
-       
-       diversity = 1 - (actual_occurrences / total_possible_occurrences)
-       return {'diversity_score': diversity}
+   def _calculate_coherence(self, topics: List[List[str]]) -> float:
+       """Calculate topic coherence (evaluation 폴더 공식)"""
+       try:
+           if not topics:
+               return 0.0
+
+           word_doc_freq = self.model_stats.get('word_doc_freq', {})
+           co_doc_freq = self.model_stats.get('co_doc_freq', {})
+           total_docs = self.total_documents or len(word_doc_freq)
+
+           coherence_scores = []
+           for topic_words in topics:
+               if len(topic_words) < 2:
+                   continue
+
+               # Use only top 10 keywords
+               topic_words = topic_words[:10]
+
+               topic_coherence = []
+               for i in range(1, len(topic_words)):
+                   for j in range(0, i):
+                       word2, word1 = topic_words[i], topic_words[j]
+
+                       d_w1 = word_doc_freq.get(word1, 0)
+                       if d_w1 == 0:
+                           continue
+
+                       pair = (word1, word2) if word1 < word2 else (word2, word1)
+                       d_w1w2 = co_doc_freq.get(pair, 0)
+
+                       # PMI 계산
+                       p_w1 = d_w1 / total_docs
+                       p_w2 = word_doc_freq.get(word2, 0) / total_docs
+                       p_w1w2 = d_w1w2 / total_docs
+
+                       if p_w1w2 == 0:
+                           continue
+
+                       pmi = np.log(p_w1w2 / (p_w1 * p_w2))
+
+                       # NPMI 계산 및 정규화
+                       npmi = pmi / (-np.log(p_w1w2))
+                       normalized_npmi = (npmi + 1) / 2
+                       topic_coherence.append(normalized_npmi)
+
+               if topic_coherence:
+                   coherence_scores.append(np.mean(topic_coherence))
+
+           if coherence_scores:
+               return np.mean(coherence_scores)
+           return 0.0
+
+       except Exception as e:
+           print(f"[WARNING] Error calculating coherence: {str(e)}")
+           return 0.0
+
+   def _calculate_jsd(self, topics: List[List[str]], topic_assignments: List[int]) -> float:
+       """Jensen-Shannon Divergence 계산 (evaluation 폴더 공식)"""
+       from scipy.spatial.distance import jensenshannon
+
+       valid_assignments = [t for t in topic_assignments if t >= 0]
+       if not valid_assignments:
+           return 0.0
+
+       topic_dist = np.bincount(valid_assignments, minlength=len(topics))
+       if np.sum(topic_dist) == 0:
+           return 0.0
+
+       topic_dist = topic_dist / np.sum(topic_dist)
+       uniform_dist = np.ones_like(topic_dist) / len(topic_dist)
+
+       return jensenshannon(topic_dist, uniform_dist)
+
+   def _calculate_diversity(self, topics: List[List[str]]) -> float:
+       """토픽 다양성 계산 (Topic Diversity) - evaluation 폴더 공식
+
+       TD = unique words / total words
+       토픽 간 중복되지 않는 고유 단어의 비율을 측정
+       """
+       if not topics:
+           return 0.0
+
+       all_words = set()
+       total_words = 0
+
+       for topic_keywords in topics:
+           all_words.update(topic_keywords)
+           total_words += len(topic_keywords)
+
+       diversity = len(all_words) / total_words if total_words > 0 else 0.0
+
+       return diversity
+
+   def set_model_stats(self, **kwargs):
+       """모델 통계 정보 설정"""
+       try:
+           self.topic_sizes = kwargs.get('topic_sizes', {})
+           self.vocabulary_size = kwargs.get('vocabulary_size', 0)
+           self.total_documents = kwargs.get('total_documents', 0)
+           self.model_stats = kwargs
+
+       except Exception as e:
+           print(f"[WARNING] 통계 정보 설정 중 오류 발생: {str(e)}")
 
    def _evaluate_kld(self, topics: List[List[str]], vocab_size: int = None) -> Dict[str, Any]:
        """
@@ -308,39 +395,91 @@ class TopicModelStatEvaluator:
        
        return overall_score
 
-   def evaluate(self, topics: List[List[str]], texts: List[List[str]], 
-               dictionary, word_doc_freq: Dict[str, int],
-               co_doc_freq: Dict[tuple, int], total_documents: int,
-               vocab_size: int) -> Dict[str, Any]:
-       """토픽 모델 평가 수행"""
-       npmi_scores = self._evaluate_npmi(topics, word_doc_freq, co_doc_freq, total_documents)
-       coherence_scores = self._evaluate_cv_coherence(topics, texts, dictionary)
-       diversity_scores = self._evaluate_topic_diversity(topics)
-       kld_scores = self._evaluate_kld(topics, vocab_size)
-       jsd_scores = self._evaluate_jsd(topics, vocab_size)
-       irbo_scores = self._evaluate_irbo(topics)
-       
-       return {
-           'npmi': npmi_scores['average_npmi'],
-           'coherence': coherence_scores['average_coherence'],
-           'diversity': diversity_scores['diversity_score'],
-           'kld': kld_scores['average_kld'],
-           'jsd': jsd_scores['average_jsd'],
-           'irbo': irbo_scores['irbo_score'],
-           'overall_score': self._compute_overall_score(
-               npmi_scores,
-               coherence_scores,
-               diversity_scores,
-               kld_scores,
-               jsd_scores,
-               irbo_scores
-           ),
-           'detailed_scores': {
-               'npmi': npmi_scores,
-               'coherence': coherence_scores,
-               'diversity': diversity_scores,
-               'kld': kld_scores,
-               'jsd': jsd_scores,
-               'irbo': irbo_scores
+   def evaluate(self, topics: List[List[str]], docs: List[str], topic_assignments: List[int]) -> Dict[str, Any]:
+       """토픽 모델 종합 평가 (evaluation 폴더 공식 사용)"""
+       try:
+           self._validate_inputs(topics, docs, topic_assignments)
+
+           # 각 지표의 원점수 계산
+           coherence_score = self._calculate_coherence(topics)
+           distinctiveness_score = self._calculate_jsd(topics, topic_assignments)
+           diversity_score = self._calculate_diversity(topics)
+
+           # 결과를 새로운 형식으로 구성
+           coherence_result = {
+               'average_coherence': coherence_score,
+               'topic_coherence': [coherence_score]
            }
+
+           distinctiveness_result = {
+               'average_distinctiveness': distinctiveness_score,
+               'topic_distinctiveness': [distinctiveness_score]
+           }
+
+           diversity_result = {
+               'diversity': diversity_score
+           }
+
+           # 고정 가중치 정의
+           weights = {
+               'coherence': 0.5,
+               'distinctiveness': 0.3,
+               'diversity': 0.2
+           }
+
+           # 원점수
+           raw_scores = {
+               'coherence': coherence_score,
+               'distinctiveness': distinctiveness_score,
+               'diversity': diversity_score
+           }
+
+           # 가중치 적용된 개별 점수
+           weighted_scores = {
+               'coherence': raw_scores['coherence'] * weights['coherence'],
+               'distinctiveness': raw_scores['distinctiveness'] * weights['distinctiveness'],
+               'diversity': raw_scores['diversity'] * weights['diversity']
+           }
+
+           # 최종 종합 점수
+           overall_score = sum(weighted_scores.values())
+
+           return {
+               'coherence': coherence_result,
+               'distinctiveness': distinctiveness_result,
+               'diversity': diversity_result,
+               'raw_scores': raw_scores,
+               'weighted_scores': weighted_scores,
+               'weights': weights,
+               'overall_score': overall_score
+           }
+
+       except Exception as e:
+           print(f"[ERROR] 토픽 모델 평가 중 오류 발생: {str(e)}")
+           return {
+               'coherence': self._get_default_evaluation_result(),
+               'distinctiveness': self._get_default_evaluation_result(),
+               'diversity': {'diversity': 0.0},
+               'raw_scores': {'coherence': 0.0, 'distinctiveness': 0.0, 'diversity': 0.0},
+               'weighted_scores': {'coherence': 0.0, 'distinctiveness': 0.0, 'diversity': 0.0},
+               'weights': {'coherence': 0.5, 'distinctiveness': 0.3, 'diversity': 0.2},
+               'overall_score': 0.0
+           }
+
+   def _validate_inputs(self, topics: List[List[str]], docs: List[str], topic_assignments: List[int]) -> None:
+       """Validate input data"""
+       if not topics or not all(isinstance(topic, list) for topic in topics):
+           raise ValueError("Invalid topic format")
+
+       if not docs:
+           raise ValueError("Documents are empty")
+
+       if len(docs) != len(topic_assignments):
+           raise ValueError("Number of documents does not match topic assignments")
+
+   def _get_default_evaluation_result(self) -> Dict[str, float]:
+       """Get default evaluation result"""
+       return {
+           'average_coherence': 0.0,
+           'topic_coherence': []
        }

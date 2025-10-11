@@ -2,8 +2,7 @@ import numpy as np
 import json
 import pandas as pd
 import pickle
-from StatEvaluator import TopicModelStatEvaluator  
-from gensim.corpora import Dictionary
+from StatEvaluator import TopicModelStatEvaluator
 from multiprocessing import freeze_support
 
 def main():
@@ -55,9 +54,15 @@ def main():
     texts_similar = [text.split() for text in df_similar['text']]
     texts_more_similar = [text.split() for text in df_more_similar['text']]
 
-    dictionary_distinct = Dictionary(texts_distinct)
-    dictionary_similar = Dictionary(texts_similar)
-    dictionary_more_similar = Dictionary(texts_more_similar)
+    # Convert labels to numeric
+    def convert_labels_to_numeric(df):
+        unique_labels = df['label'].unique()
+        label_to_num = {label: idx for idx, label in enumerate(sorted(unique_labels))}
+        return df['label'].map(label_to_num).values
+
+    assignments_distinct = convert_labels_to_numeric(df_distinct)
+    assignments_similar = convert_labels_to_numeric(df_similar)
+    assignments_more_similar = convert_labels_to_numeric(df_more_similar)
 
     def get_word_frequencies(texts):
         word_doc_freq = {}
@@ -80,8 +85,15 @@ def main():
     word_freq_similar, coword_freq_similar = get_word_frequencies(texts_similar)
     word_freq_more_similar, coword_freq_more_similar = get_word_frequencies(texts_more_similar)
 
-    # Initialize the evaluator
+    # Initialize the evaluator and set model stats
     evaluator = TopicModelStatEvaluator()
+
+    # Set stats for distinct
+    evaluator.set_model_stats(
+        word_doc_freq=word_freq_distinct,
+        co_doc_freq=coword_freq_distinct,
+        total_documents=len(texts_distinct)
+    )
 
     # 4. Perform evaluation using TF-IDF derived keywords (5 times)
     num_iterations = 5
@@ -96,68 +108,65 @@ def main():
         print(f"\nIteration {i+1}/{num_iterations}")
         
         # Evaluate distinct topics
-        eval_distinct = evaluator.evaluate(
-            topics=topic_keywords_distinct,
-            texts=texts_distinct,
-            dictionary=dictionary_distinct,
+        evaluator.set_model_stats(
             word_doc_freq=word_freq_distinct,
             co_doc_freq=coword_freq_distinct,
-            total_documents=len(texts_distinct),
-            vocab_size=len(dictionary_distinct)
+            total_documents=len(texts_distinct)
+        )
+        eval_distinct = evaluator.evaluate(
+            topics=topic_keywords_distinct,
+            docs=df_distinct['text'].tolist(),
+            topic_assignments=assignments_distinct.tolist()
         )
         eval_results['distinct'].append(eval_distinct)
 
         # Evaluate similar topics
-        eval_similar = evaluator.evaluate(
-            topics=topic_keywords_similar,
-            texts=texts_similar,
-            dictionary=dictionary_similar,
+        evaluator.set_model_stats(
             word_doc_freq=word_freq_similar,
             co_doc_freq=coword_freq_similar,
-            total_documents=len(texts_similar),
-            vocab_size=len(dictionary_similar)
+            total_documents=len(texts_similar)
+        )
+        eval_similar = evaluator.evaluate(
+            topics=topic_keywords_similar,
+            docs=df_similar['text'].tolist(),
+            topic_assignments=assignments_similar.tolist()
         )
         eval_results['similar'].append(eval_similar)
 
         # Evaluate more similar topics
-        eval_more_similar = evaluator.evaluate(
-            topics=topic_keywords_more_similar,
-            texts=texts_more_similar,
-            dictionary=dictionary_more_similar,
+        evaluator.set_model_stats(
             word_doc_freq=word_freq_more_similar,
             co_doc_freq=coword_freq_more_similar,
-            total_documents=len(texts_more_similar),
-            vocab_size=len(dictionary_more_similar)
+            total_documents=len(texts_more_similar)
+        )
+        eval_more_similar = evaluator.evaluate(
+            topics=topic_keywords_more_similar,
+            docs=df_more_similar['text'].tolist(),
+            topic_assignments=assignments_more_similar.tolist()
         )
         eval_results['more_similar'].append(eval_more_similar)
 
     # Calculate average results for each dataset
     def calculate_avg_results(eval_list):
         """
-        메트릭별 평균 결과 계산 및 정리
+        메트릭별 평균 결과 계산 및 정리 (새로운 형식)
         Args:
             eval_list: 평가 결과 리스트
         Returns:
             평균 메트릭 결과 딕셔너리
         """
-        # 평가할 메트릭 정의
-        metrics = {
-            'npmi': 'Distinctiveness',
-            'coherence': 'Semantic Coherence',
-            'diversity': 'Topic Diversity',
-            'kld': 'KL Divergence',
-            'jsd': 'Jensen-Shannon Distance',
-            'irbo': 'Semantic Integration',
-            'overall_score': 'Overall Score'
+        # 새로운 형식에 맞게 수정
+        coherence_values = [e['raw_scores']['coherence'] for e in eval_list]
+        distinctiveness_values = [e['raw_scores']['distinctiveness'] for e in eval_list]
+        diversity_values = [e['raw_scores']['diversity'] for e in eval_list]
+        overall_values = [e['overall_score'] for e in eval_list]
+
+        return {
+            'coherence': np.mean(coherence_values),
+            'distinctiveness': np.mean(distinctiveness_values),
+            'diversity': np.mean(diversity_values),
+            'overall_score': np.mean(overall_values)
         }
-        
-        # 각 메트릭별 평균 계산
-        avg_results = {}
-        for metric in metrics.keys():
-            values = [e[metric] for e in eval_list]
-            avg_results[metric] = np.mean(values)
-        
-        return avg_results
 
     avg_distinct = calculate_avg_results(eval_results['distinct'])
     avg_similar = calculate_avg_results(eval_results['similar'])
@@ -167,27 +176,21 @@ def main():
     print("\nAverage Evaluation Results (5 iterations)")
     print("\nEvaluation Results for Distinct Topics:")
     for metric, value in avg_distinct.items():
-        if metric != 'detailed_scores':
-            print(f"{metric.replace('_', ' ').title()}: {value:.3f}")
+        print(f"{metric.replace('_', ' ').title()}: {value:.3f}")
 
     print("\nEvaluation Results for Similar Topics:")
     for metric, value in avg_similar.items():
-        if metric != 'detailed_scores':
-            print(f"{metric.replace('_', ' ').title()}: {value:.3f}")
+        print(f"{metric.replace('_', ' ').title()}: {value:.3f}")
 
     print("\nEvaluation Results for More Similar Topics:")
     for metric, value in avg_more_similar.items():
-        if metric != 'detailed_scores':
-            print(f"{metric.replace('_', ' ').title()}: {value:.3f}")
+        print(f"{metric.replace('_', ' ').title()}: {value:.3f}")
 
     # Create comparison table with averaged results
     metrics = {
-        'npmi': 'Distinctiveness',
-        'coherence': 'Semantic Coherence',
-        'diversity': 'Topic Diversity',
-        'kld': 'KL Divergence',
-        'jsd': 'Jensen-Shannon Distance',
-        'irbo': 'Semantic Integration',
+        'coherence': 'Coherence',
+        'distinctiveness': 'Distinctiveness',
+        'diversity': 'Diversity',
         'overall_score': 'Overall Score'
     }
 
@@ -232,36 +235,33 @@ def main():
             'more_similar_topics': avg_more_similar
         }, f, indent=2)
 
-    # Calculate consistency metrics    
+    # Calculate consistency metrics (새로운 형식에 맞게)
     metrics_map = {
-        'npmi': 'Distinctiveness',
-        'coherence': 'Semantic Coherence',
-        'diversity': 'Topic Diversity',
-        'kld': 'KL Divergence',
-        'jsd': 'Jensen-Shannon Distance',
-        'irbo': 'Semantic Integration',
+        'coherence': 'Coherence',
+        'distinctiveness': 'Distinctiveness',
+        'diversity': 'Diversity',
         'overall_score': 'Overall Score'
     }
-    
+
     consistency_data = []
     for metric in metrics_map.keys():
         values = [
-            eval_distinct[metric],
-            eval_similar[metric],
-            eval_more_similar[metric]
+            avg_distinct[metric],
+            avg_similar[metric],
+            avg_more_similar[metric]
         ]
         mean = np.mean(values)
         cv = (np.std(values) / mean) * 100  # Coefficient of Variation in percentage
-        
+
         consistency_data.append({
             'Metric': metrics_map[metric],
             'Mean': mean,
             'CV (%)': cv
         })
-    
+
     consistency_df = pd.DataFrame(consistency_data)
     consistency_df.set_index('Metric', inplace=True)
-    
+
     print("\nOverall Consistency Analysis (Averaged across datasets)")
     print("=" * 60)
     pd.set_option('display.float_format', lambda x: '{:.3f}'.format(x))

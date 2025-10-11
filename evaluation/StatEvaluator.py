@@ -103,68 +103,98 @@ class TopicModelStatEvaluator:
         
         topic_dist = topic_dist / np.sum(topic_dist)
         uniform_dist = np.ones_like(topic_dist) / len(topic_dist)
-    
+
         return jensenshannon(topic_dist, uniform_dist)
+
+    def _calculate_diversity(self, topics: List[List[str]]) -> float:
+        """토픽 다양성 계산 (Topic Diversity)
+
+        TD = unique words / total words
+        토픽 간 중복되지 않는 고유 단어의 비율을 측정
+        """
+        if not topics:
+            return 0.0
+
+        all_words = set()
+        total_words = 0
+
+        for topic_keywords in topics:
+            all_words.update(topic_keywords)
+            total_words += len(topic_keywords)
+
+        diversity = len(all_words) / total_words if total_words > 0 else 0.0
+
+        return diversity
 
     def evaluate(self, topics: List[List[str]], docs: List[str], topic_assignments: List[int]) -> Dict[str, Any]:
         """토픽 모델 종합 평가"""
         try:
             self._validate_inputs(topics, docs, topic_assignments)
-            
+
             # 각 지표의 원점수 계산 (기존 메서드 사용)
             coherence_score = self._calculate_coherence(topics)
             distinctiveness_score = self._calculate_jsd(topics, topic_assignments) # Jensen-Shannon Divergence 사용
-            
+            diversity_score = self._calculate_diversity(topics)
+
             # 결과를 새로운 형식으로 구성
             coherence_result = {
                 'average_coherence': coherence_score,
                 'topic_coherence': [coherence_score]  # 개별 토픽 점수가 필요하다면 수정 필요
             }
-            
+
             distinctiveness_result = {
                 'average_distinctiveness': distinctiveness_score,
                 'topic_distinctiveness': [distinctiveness_score]  # 개별 토픽 점수가 필요하다면 수정 필요
             }
-            
+
+            diversity_result = {
+                'diversity': diversity_score
+            }
+
             # 고정 가중치 정의
             weights = {
-                'coherence': 0.7,        # 토픽 품질
-                'distinctiveness': 0.3   # 토픽 간 구별성
+                'coherence': 0.5,        # 토픽 품질
+                'distinctiveness': 0.3,  # 토픽 간 구별성
+                'diversity': 0.2         # 토픽 다양성
             }
-            
-            # 원점수 
+
+            # 원점수
             raw_scores = {
                 'coherence': coherence_score,
                 'distinctiveness': distinctiveness_score,
+                'diversity': diversity_score
             }
-            
+
             # 가중치 적용된 개별 점수
             weighted_scores = {
                 'coherence': raw_scores['coherence'] * weights['coherence'],
                 'distinctiveness': raw_scores['distinctiveness'] * weights['distinctiveness'],
+                'diversity': raw_scores['diversity'] * weights['diversity']
             }
-            
+
             # 최종 종합 점수
             overall_score = sum(weighted_scores.values())
-            
+
             return {
                 'coherence': coherence_result,
                 'distinctiveness': distinctiveness_result,
+                'diversity': diversity_result,
                 'raw_scores': raw_scores,
                 'weighted_scores': weighted_scores,
                 'weights': weights,
                 'overall_score': overall_score
             }
-            
+
         except Exception as e:
             print(f"[ERROR] 토픽 모델 평가 중 오류 발생: {str(e)}")
             traceback.print_exc()
             return {
                 'coherence': self._get_default_evaluation_result(),
                 'distinctiveness': self._get_default_evaluation_result(),
-                'raw_scores': {'coherence': 0.0, 'distinctiveness': 0.0},
-                'weighted_scores': {'coherence': 0.0, 'distinctiveness': 0.0},
-                'weights': {'coherence': 0.7, 'distinctiveness': 0.3},
+                'diversity': {'diversity': 0.0},
+                'raw_scores': {'coherence': 0.0, 'distinctiveness': 0.0, 'diversity': 0.0},
+                'weighted_scores': {'coherence': 0.0, 'distinctiveness': 0.0, 'diversity': 0.0},
+                'weights': {'coherence': 0.5, 'distinctiveness': 0.3, 'diversity': 0.2},
                 'overall_score': 0.0
             }
 

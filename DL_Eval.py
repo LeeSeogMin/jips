@@ -3,7 +3,9 @@ import numpy as np
 import json
 import pandas as pd
 import pickle
-from enhanced_evaluator import EnhancedTopicModelNeuralEvaluator
+import torch
+from NeuralEvaluator import TopicModelNeuralEvaluator
+from sentence_transformers import SentenceTransformer
 
 def calculate_statistics(results_list):
     """
@@ -32,8 +34,31 @@ def run_enhanced_evaluation(n_runs=5):
         with open(f'data/topics_{dataset}.pkl', 'rb') as f:
             data_dict[f'topics_{dataset}'] = pickle.load(f)
 
-    # 3. Initialize the enhanced evaluator
-    evaluator = EnhancedTopicModelNeuralEvaluator()
+    # 3. Load sentence transformer model for embeddings
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+
+    # Create vocabulary from all topics
+    all_keywords = set()
+    for dataset in datasets:
+        for topic in data_dict[f'topics_{dataset}']:
+            all_keywords.update(topic)
+
+    # Generate embeddings for all keywords
+    keyword_list = list(all_keywords)
+    keyword_embeddings_np = model.encode(keyword_list, show_progress_bar=False)
+
+    # Create embeddings dictionary
+    model_embeddings = {
+        keyword: torch.from_numpy(emb).float()
+        for keyword, emb in zip(keyword_list, keyword_embeddings_np)
+    }
+
+    # Initialize evaluator with embeddings
+    evaluator = TopicModelNeuralEvaluator(
+        model_embeddings=model_embeddings,
+        embedding_dim=384,  # all-MiniLM-L6-v2 dimension
+        device='cpu'
+    )
 
     # 4. Convert labels to numeric
     def convert_labels_to_numeric(df):
@@ -61,36 +86,31 @@ def run_enhanced_evaluation(n_runs=5):
     }
 
     # 6. Perform multiple evaluations
-    metrics = [
-        'Coherence',
-        'Distinctiveness', 
-        'Diversity',
-        'Semantic Integration Score',
-        'Overall Score'
-    ]
-    
-    # 메트릭 표시 이름
     metric_display_names = [
         'Coherence',
         'Distinctiveness',
         'Diversity',
-        'Semantic Integration',
         'Overall Score'
     ]
-    
+
     all_results = {dataset_name: [] for dataset_name in evaluation_data.keys()}
-    
+
     print("\nRunning evaluation with", n_runs, "iterations for consistency analysis...")
-    
+
     for run in range(n_runs):
         print(f"Iteration {run + 1}/{n_runs}...")
         for dataset_name, dataset in evaluation_data.items():
             results = evaluator.evaluate(
                 topics=dataset['topics'],
-                docs=dataset['df']['text'].tolist(),
-                topic_assignments=dataset['assignments']
+                docs=dataset['df']['text'].tolist()
             )
-            all_results[dataset_name].append([results[m] for m in metrics])
+            # Extract values in order: coherence, distinctiveness, diversity, overall
+            all_results[dataset_name].append([
+                results['raw_scores']['coherence'],
+                results['raw_scores']['distinctiveness'],
+                results['raw_scores']['diversity'],
+                results['overall_score']
+            ])
 
     # 7. Calculate statistics and create tables
     dataset_tables = {}
@@ -196,7 +216,7 @@ def run_enhanced_evaluation(n_runs=5):
             },
             'metadata': {
                 'n_runs': n_runs,
-                'metrics': dict(zip(metrics, metric_display_names))
+                'metrics': metric_display_names
             }
         }, f, indent=2, default=str)
 

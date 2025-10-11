@@ -615,6 +615,266 @@ with human judgment (r=0.987, p<0.001)."
 
 **Status**: Ready for execution pending decision on public dataset approach
 
+---
+
+## Part 8: Diversity Metric Integration
+
+### Background
+
+While the original evaluation framework included three primary metrics (coherence, distinctiveness, and semantic integration), the diversity metric—commonly used in topic modeling literature—was not initially integrated into the evaluation framework. This section documents the integration of the diversity metric into both statistical and semantic evaluators.
+
+### Diversity Metric Definition
+
+**Topic Diversity (TD)** measures the proportion of unique words across all topics relative to the total number of words:
+
+```
+TD = |unique_words| / |total_words|
+```
+
+Where:
+- `unique_words`: Set of distinct words across all topics
+- `total_words`: Total count of words including repetitions
+
+**Interpretation**:
+- TD = 1.0: All words are unique (no overlap between topics)
+- TD = 0.2-0.4: Significant overlap (typical for hierarchical topics)
+- TD = 0.6-0.9: Good separation (typical for well-defined topics)
+
+**Example**:
+```
+Topic 1: {machine, learning, algorithm, neural, network}
+Topic 2: {cooking, recipe, ingredient, kitchen, chef}
+Topic 3: {sports, football, basketball, game, player}
+
+Total words: 15
+Unique words: 15 (no overlap)
+TD = 15/15 = 1.0 (perfect diversity)
+```
+
+---
+
+### Implementation
+
+#### 8.1 StatEvaluator Integration
+
+**File**: `evaluation/StatEvaluator.py`
+
+**Added Method**:
+```python
+def _calculate_diversity(self, topics: List[List[str]]) -> float:
+    """토픽 다양성 계산 (Topic Diversity)
+
+    TD = unique words / total words
+    토픽 간 중복되지 않는 고유 단어의 비율을 측정
+    """
+    if not topics:
+        return 0.0
+
+    all_words = set()
+    total_words = 0
+
+    for topic_keywords in topics:
+        all_words.update(topic_keywords)
+        total_words += len(topic_keywords)
+
+    diversity = len(all_words) / total_words if total_words > 0 else 0.0
+
+    return diversity
+```
+
+**Updated Weights**:
+```python
+# OLD weights:
+weights = {
+    'coherence': 0.7,        # 토픽 품질
+    'distinctiveness': 0.3   # 토픽 간 구별성
+}
+
+# NEW weights (with diversity):
+weights = {
+    'coherence': 0.5,        # 토픽 품질
+    'distinctiveness': 0.3,  # 토픽 간 구별성
+    'diversity': 0.2         # 토픽 다양성
+}
+```
+
+**Rationale for Weight Adjustment**:
+- Coherence remains most important (0.5) - captures topic quality
+- Distinctiveness maintains significance (0.3) - ensures topic separation
+- Diversity added (0.2) - penalizes excessive word overlap
+- Total: 1.0 (normalized)
+
+---
+
+#### 8.2 NeuralEvaluator Integration
+
+**File**: `evaluation/NeuralEvaluator.py`
+
+**Added Method**:
+```python
+def evaluate_topic_diversity(self, topics: List[List[str]]) -> Dict[str, Any]:
+    """토픽 다양성 평가 (Topic Diversity)
+
+    TD = unique words / total words
+    토픽 간 중복되지 않는 고유 단어의 비율을 측정
+    """
+    if not topics:
+        return {'diversity': 0.0}
+
+    all_words = set()
+    total_words = 0
+
+    for topic_keywords in topics:
+        all_words.update(topic_keywords)
+        total_words += len(topic_keywords)
+
+    diversity = len(all_words) / total_words if total_words > 0 else 0.0
+
+    return {
+        'diversity': float(diversity),
+        'unique_words': len(all_words),
+        'total_words': total_words
+    }
+```
+
+**Updated Weights** (same as StatEvaluator):
+```python
+weights = {
+    'coherence': 0.5,       # 일관성
+    'distinctiveness': 0.3,  # 구별성
+    'diversity': 0.2         # 다양성
+}
+```
+
+---
+
+### Experimental Results
+
+**Experiment Setup**:
+- **Dataset**: 20 Newsgroups (1,000 documents, 5 top-level categories)
+- **Model**: CTE (Clustering-based Topic Extraction)
+- **Embedding**: all-MiniLM-L6-v2 (384-dim)
+- **Evaluators**: Statistical + Semantic (with diversity) + LLM Consensus
+
+**Diversity Metrics**:
+
+| Metric | Statistical | Semantic | LLM Consensus |
+|--------|------------|----------|---------------|
+| **Coherence** | 1.648 | 0.588 | 0.734 |
+| **Distinctiveness** | 0.097 | 0.746 | 0.933 |
+| **Diversity (TD)** | 1.000 | 1.000 | 0.883 |
+| **Overall Score** | 1.053 | 0.718 | 0.827 |
+
+**Key Findings**:
+
+1. **Perfect Lexical Diversity (TD=1.0)**: Both Statistical and Semantic evaluators measured perfect topic diversity, indicating all 50 keywords (5 topics × 10 words) are unique with zero overlap between topics. This demonstrates excellent topic separation at the lexical level.
+
+2. **LLM Implicit Diversity Assessment**: The LLM consensus diversity score (mean=0.883, range: 0.78-0.95) is slightly lower than the perfect TD=1.0, suggesting that LLMs evaluate diversity through semantic similarity rather than strict lexical overlap. This is expected behavior as LLMs can recognize synonyms and semantically related words.
+
+3. **Diversity Complements Distinctiveness**: The perfect TD score (1.0) aligns with high semantic distinctiveness (0.746), confirming that lexical separation correlates with semantic separation. However, statistical distinctiveness (JSD=0.097) is low due to unbalanced topic sizes, demonstrating that TD captures different aspects than distribution-based distinctiveness.
+
+4. **Ground Truth Correlation**: With average ground truth purity of 0.689, the perfect TD score suggests that lexical diversity is a necessary but not sufficient condition for topic quality. Topics can have no keyword overlap (TD=1.0) while still containing documents from multiple categories.
+
+---
+
+### Manuscript Integration
+
+#### Proposed Section: "5.X Diversity Metric Integration"
+
+**Location**: After Section 5.3 (Robustness Analysis) or as subsection of Section 5
+
+**Draft Content** (200-250 words):
+
+```
+5.X Diversity Metric Integration
+
+To complement our core evaluation framework, we integrated the topic diversity
+metric (TD), commonly used in topic modeling literature [Röder et al., 2015].
+TD measures the proportion of unique words across topics:
+
+    TD = |unique_words| / |total_words|
+
+Higher diversity indicates less word overlap between topics, suggesting better
+topic separation at the lexical level. We incorporated TD into both statistical
+and semantic evaluators with a weight of 0.2, adjusting coherence to 0.5 and
+distinctiveness to 0.3 (totaling 1.0).
+
+Table X shows diversity metrics for CTE-extracted topics from 20 Newsgroups
+(1,000 documents, 5 categories):
+
+[TABLE X: Diversity Metrics Comparison]
+┌─────────────────────┬──────────┬────────────┬───────────────────────┐
+│ Evaluation Method   │ TD Score │ Unique/Tot │ Interpretation        │
+├─────────────────────┼──────────┼────────────┼───────────────────────┤
+│ Statistical         │ 1.000    │ 50/50      │ Perfect separation    │
+│ Semantic            │ 1.000    │ 50/50      │ Perfect separation    │
+│ LLM Consensus       │ 0.883    │ -          │ High (semantic-based) │
+│ Expected (Good)     │ 0.7-0.9  │ 35-45/50   │ Well-separated        │
+│ Expected (Poor)     │ 0.3-0.5  │ 15-25/50   │ High overlap          │
+└─────────────────────┴──────────┴────────────┴───────────────────────┘
+
+Both statistical and semantic evaluators measured perfect diversity (TD=1.0),
+indicating all 50 topic keywords (5 topics × 10 words) are unique with zero
+lexical overlap. This demonstrates excellent topic separation at the word level.
+
+Notably, the LLM consensus diversity score (0.883) was slightly lower than the
+perfect TD=1.0, suggesting that LLMs evaluate diversity through semantic
+similarity rather than strict lexical matching. LLMs can recognize synonyms and
+semantically related concepts, leading to lower diversity scores even when
+keywords are lexically distinct.
+
+The perfect TD score aligned with high semantic distinctiveness (0.746) but
+contrasted with low statistical distinctiveness (JSD=0.097), demonstrating that
+TD captures lexical separation independently of topic size distributions.
+Integration of diversity provides a more comprehensive evaluation framework,
+addressing both semantic quality (coherence, distinctiveness) and lexical
+characteristics (diversity). This multi-dimensional approach better captures
+the facets of topic quality evaluation.
+```
+
+**References to Add**:
+```
+Röder, M., Both, A., & Hinneburg, A. (2015). Exploring the space of topic
+coherence measures. In Proceedings of the eighth ACM international conference
+on Web search and data mining (pp. 399-408).
+```
+
+---
+
+### Summary
+
+**Changes Made**:
+1. ✅ Added `_calculate_diversity()` to StatEvaluator
+2. ✅ Added `evaluate_topic_diversity()` to NeuralEvaluator
+3. ✅ Updated weight distributions in both evaluators (0.5, 0.3, 0.2)
+4. ✅ Modified `evaluate()` methods to include diversity
+5. ✅ Updated experiment script to extract diversity from evaluators
+6. ✅ Completed CTE experiment with diversity metrics
+7. ✅ Analyzed diversity results (TD=1.0 for both evaluators)
+8. ✅ Updated manuscript section with actual experimental data
+
+**Key Results**:
+- **Statistical Diversity**: 1.000 (50/50 unique words)
+- **Semantic Diversity**: 1.000 (50/50 unique words)
+- **LLM Consensus Diversity**: 0.883 (mean, range: 0.78-0.95)
+- **Interpretation**: Perfect lexical separation, high semantic-based diversity
+
+**Implementation Complete**:
+✅ All code changes integrated
+✅ Experimental validation completed
+✅ Results documented with manuscript-ready section
+✅ Ready for manuscript integration
+
+**Time Actual**:
+- Implementation: ✅ 30 minutes
+- Experiment: ✅ 15 minutes
+- Analysis + Documentation: ✅ 45 minutes
+- **Total**: ~1.5 hours
+
+**Page Addition**: ~0.4-0.5 pages (main text) + Table X
+
+---
+
   핵심 요약:
 
   1. Grok이 지적한 13개 이슈 분류
