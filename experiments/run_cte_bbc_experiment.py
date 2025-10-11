@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Simple BBC News Experiment without BERTopic
-Uses NEW evaluation/ folder evaluators (StatEvaluator, NeuralEvaluator)
-Topic extraction: Simple TF-IDF clustering (mimics topic modeling)
+BBC News Experiment with CTE Model
+Uses evaluation/cte_model.py for topic extraction
+Evaluates with StatEvaluator + NeuralEvaluator + LLM consensus
 """
 
 # Disable TensorFlow BEFORE any imports
@@ -13,47 +13,46 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 import sys
 sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('./llm_analyzers'))
 
 import numpy as np
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
+import torch
 from sklearn.datasets import fetch_20newsgroups
 from scipy.stats import pearsonr
 import json
 from pathlib import Path
 from collections import Counter
-
-# Import for semantic embeddings
 from sentence_transformers import SentenceTransformer
 
 # Import NEW evaluators from evaluation/ folder
 from evaluation.StatEvaluator import TopicModelStatEvaluator
 from evaluation.NeuralEvaluator import TopicModelNeuralEvaluator
-import torch
+from evaluation.cte_model import CTEModel
+
+# Import LLM evaluators
+from llm_analyzers.openai_topic_evaluator import TopicEvaluatorLLM as OpenAITopicEvaluator
+from llm_analyzers.anthropic_topic_evaluator import TopicEvaluatorLLM as AnthropicTopicEvaluator
+from llm_analyzers.grok_topic_evaluator import TopicEvaluatorLLM as GrokTopicEvaluator
 
 print("="*70)
-print("BBC NEWS SIMPLIFIED EXPERIMENT (Without BERTopic)")
-print("Using TF-IDF + K-Means for topic extraction")
-print("Using sentence-transformers for semantic metrics")
+print("BBC NEWS EXPERIMENT WITH CTE MODEL")
+print("Using CTE topic extraction + NEW evaluators + LLM consensus")
 print("="*70)
 
 # ============================================================================
-# STEP 1: Load BBC News Dataset (via 20 Newsgroups simplified)
+# STEP 1: Load 20 Newsgroups Dataset
 # ============================================================================
 
-print("\n[1/6] Loading 20 Newsgroups dataset (5 top categories)...")
+print("\n[1/7] Loading 20 Newsgroups dataset (5 top categories)...")
 
-# Use 5 top-level categories instead of 20 subcategories
 top_categories = [
-    'comp.graphics', 'comp.os.ms-windows.misc', 'comp.sys.ibm.pc.hardware', 'comp.sys.mac.hardware', 'comp.windows.x',  # Computer
-    'rec.autos', 'rec.motorcycles', 'rec.sport.baseball', 'rec.sport.hockey',  # Recreation
-    'sci.crypt', 'sci.electronics', 'sci.med', 'sci.space',  # Science
-    'talk.politics.guns', 'talk.politics.mideast', 'talk.politics.misc', 'talk.religion.misc',  # Politics/Talk
-    'misc.forsale'  # For Sale
+    'comp.graphics', 'comp.os.ms-windows.misc', 'comp.sys.ibm.pc.hardware', 'comp.sys.mac.hardware', 'comp.windows.x',
+    'rec.autos', 'rec.motorcycles', 'rec.sport.baseball', 'rec.sport.hockey',
+    'sci.crypt', 'sci.electronics', 'sci.med', 'sci.space',
+    'talk.politics.guns', 'talk.politics.mideast', 'talk.politics.misc', 'talk.religion.misc',
+    'misc.forsale'
 ]
 
-# Map to 5 top-level categories
 category_mapping = {
     'comp.graphics': 0, 'comp.os.ms-windows.misc': 0, 'comp.sys.ibm.pc.hardware': 0,
     'comp.sys.mac.hardware': 0, 'comp.windows.x': 0,
@@ -70,8 +69,8 @@ newsgroups = fetch_20newsgroups(
     random_state=42
 )
 
-documents = newsgroups.data[:5000]  # Limit for faster processing
-original_labels = [category_mapping[newsgroups.target_names[label]] for label in newsgroups.target[:5000]]
+documents = newsgroups.data[:1000]  # Reduced from 5000 to 1000 for memory efficiency
+original_labels = [category_mapping[newsgroups.target_names[label]] for label in newsgroups.target[:1000]]
 
 label_names = ['Computer', 'Recreation', 'Science', 'Politics', 'ForSale']
 
@@ -79,83 +78,98 @@ print(f"✅ Loaded {len(documents)} documents")
 print(f"✅ 5 top-level categories: {', '.join(label_names)}")
 
 # ============================================================================
-# STEP 2: Extract Topics using TF-IDF + K-Means
+# STEP 2: Extract Topics using CTE Model
 # ============================================================================
 
-print("\n[2/6] Extracting topics using TF-IDF + K-Means (K=5)...")
+print("\n[2/7] Extracting topics using CTE Model...")
 
-vectorizer = TfidfVectorizer(
-    max_df=0.95,
-    min_df=5,
-    max_features=5000,
-    stop_words='english',
-    ngram_range=(1, 2)
-)
+# Load embedding model
+print("Loading sentence embedding model...")
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+print("✅ Model loaded")
 
-doc_vectors = vectorizer.fit_transform(documents)
-feature_names = vectorizer.get_feature_names_out()
+# Compute document embeddings
+print("Computing document embeddings...")
+doc_embeddings = embedding_model.encode(documents, show_progress_bar=True, batch_size=32)
+print(f"✅ Document embeddings computed: {doc_embeddings.shape}")
 
-print(f"✅ Vocabulary size: {len(feature_names)}")
+# Tokenize documents
+print("Tokenizing documents...")
+tokenized_texts = [doc.lower().split() for doc in documents]
+print(f"✅ Tokenized {len(tokenized_texts)} documents")
 
-# K-Means clustering to extract topics
-kmeans = KMeans(n_clusters=5, random_state=42, n_init=10)
-cluster_labels = kmeans.fit_predict(doc_vectors)
+# Compute word embeddings for vocabulary
+print("Computing word embeddings for vocabulary...")
+all_words = set()
+for tokens in tokenized_texts:
+    all_words.update(tokens)
+print(f"Found {len(all_words)} unique words")
 
-print("✅ Clustering complete")
+# Sample vocabulary if too large (for memory efficiency)
+if len(all_words) > 5000:
+    print(f"⚠️  Vocabulary too large ({len(all_words)} words), sampling 5000 most frequent...")
+    word_freq = Counter()
+    for tokens in tokenized_texts:
+        word_freq.update(tokens)
+    all_words = [word for word, _ in word_freq.most_common(5000)]
+    print(f"✅ Sampled to {len(all_words)} words")
 
-# Extract top words for each cluster (topic keywords)
-topics_keywords = {}
-for cluster_id in range(5):
-    # Get centroid for this cluster
-    centroid = kmeans.cluster_centers_[cluster_id]
-    # Get top 10 words
-    top_indices = centroid.argsort()[-10:][::-1]
-    top_words = [feature_names[i] for i in top_indices]
-    topics_keywords[cluster_id] = {
-        'words': top_words,
-        'scores': [float(centroid[i]) for i in top_indices]
-    }
-    print(f"Topic {cluster_id}: {', '.join(top_words[:5])}")
+word_embeddings_dict = {}
+batch_size = 100
+word_list = list(all_words)
+
+for i in range(0, len(word_list), batch_size):
+    batch_words = word_list[i:i+batch_size]
+    batch_embs = embedding_model.encode(batch_words, show_progress_bar=False)
+    for word, emb in zip(batch_words, batch_embs):
+        word_embeddings_dict[word] = torch.from_numpy(emb).float()
+
+    if (i // batch_size + 1) % 10 == 0:
+        print(f"  Processed {i+len(batch_words)}/{len(word_list)} words...")
+
+print(f"✅ Word embeddings computed: {len(word_embeddings_dict)} words")
+
+# Initialize and fit CTE model
+print("Initializing CTE model...")
+cte_model = CTEModel(num_topics=5)
+cte_model.set_word_embeddings(word_embeddings_dict)
+
+print("Fitting CTE model...")
+cte_model.fit(tokenized_texts, doc_embeddings)
+
+print("✅ CTE model fitted")
+
+# Get topics
+topics_result = cte_model.get_topics()
+topics_keywords = topics_result['topics']
+cluster_labels = np.array(topics_result['topic_assignments'])
+
+print(f"\n✅ Extracted {len(topics_keywords)} topics:")
+for i, topic_words in enumerate(topics_keywords):
+    print(f"Topic {i}: {', '.join(topic_words[:5])}")
 
 # ============================================================================
 # STEP 3: Compute Statistical Metrics (NEW StatEvaluator)
 # ============================================================================
 
-print("\n[3/6] Computing statistical metrics with NEW StatEvaluator...")
+print("\n[3/7] Computing statistical metrics with NEW StatEvaluator...")
 
-# Prepare data for StatEvaluator
-# Build word_doc_freq and co_doc_freq
-word_doc_freq = {}
-co_doc_freq = {}
-
-for doc in documents:
-    words_in_doc = set(doc.lower().split())
-    for word in words_in_doc:
-        word_doc_freq[word] = word_doc_freq.get(word, 0) + 1
-
-    # Co-occurrence within document
-    words_list = list(words_in_doc)
-    for i in range(len(words_list)):
-        for j in range(i+1, len(words_list)):
-            pair = tuple(sorted([words_list[i], words_list[j]]))
-            co_doc_freq[pair] = co_doc_freq.get(pair, 0) + 1
+# Get model stats
+model_stats = cte_model.get_model_stats()
 
 # Initialize StatEvaluator
 stat_evaluator = TopicModelStatEvaluator()
 stat_evaluator.set_model_stats(
-    word_doc_freq=word_doc_freq,
-    co_doc_freq=co_doc_freq,
-    total_documents=len(documents),
-    vocabulary_size=len(feature_names),
-    topic_sizes={i: len(topics_keywords[i]['words']) for i in range(5)}
+    word_doc_freq=model_stats['word_doc_freq'],
+    co_doc_freq=model_stats['co_doc_freq'],
+    total_documents=model_stats['total_documents'],
+    vocabulary_size=model_stats['vocabulary_size'],
+    topic_sizes=model_stats['topic_sizes']
 )
-
-# Prepare topics for evaluation
-topics_for_eval = [topics_keywords[i]['words'] for i in range(5)]
 
 # Run statistical evaluation
 stat_results = stat_evaluator.evaluate(
-    topics=topics_for_eval,
+    topics=topics_keywords,
     docs=documents,
     topic_assignments=cluster_labels.tolist()
 )
@@ -172,25 +186,7 @@ print(f"✅ Statistical Overall Score: {stat_overall:.3f}")
 # STEP 4: Compute Semantic Metrics (NEW NeuralEvaluator)
 # ============================================================================
 
-print("\n[4/6] Computing semantic metrics with NEW NeuralEvaluator...")
-
-# Load embedding model
-print("Loading sentence embedding model...")
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')  # 384-dim
-print("✅ Model loaded")
-
-# Compute word embeddings for all topic keywords
-all_words = set()
-for cluster_id in range(5):
-    all_words.update(topics_keywords[cluster_id]['words'])
-
-print(f"Computing embeddings for {len(all_words)} unique words...")
-word_embeddings_dict = {}
-for word in all_words:
-    emb = embedding_model.encode(word, show_progress_bar=False)
-    word_embeddings_dict[word] = torch.from_numpy(emb).float()
-
-print("✅ Embeddings computed")
+print("\n[4/7] Computing semantic metrics with NEW NeuralEvaluator...")
 
 # Initialize NeuralEvaluator
 neural_evaluator = TopicModelNeuralEvaluator(
@@ -201,7 +197,7 @@ neural_evaluator = TopicModelNeuralEvaluator(
 
 # Run semantic evaluation
 neural_results = neural_evaluator.evaluate(
-    topics=topics_for_eval,
+    topics=topics_keywords,
     docs=documents
 )
 
@@ -213,28 +209,62 @@ print(f"✅ Semantic Coherence (NEW method): {semantic_coherence:.3f}")
 print(f"✅ Semantic Distinctiveness (NEW method): {semantic_distinctiveness:.3f}")
 print(f"✅ Semantic Overall Score: {semantic_overall:.3f}")
 
-# Per-topic scores
 print("\nPer-Topic Semantic Coherence:")
 for i, score in enumerate(neural_results['topic_coherence']):
     print(f"  Topic {i}: {score:.3f}")
 
 # ============================================================================
-# STEP 5: Compute Ground Truth Category Purity
+# STEP 5: Compute LLM Evaluation
 # ============================================================================
 
-print("\n[5/6] Computing ground truth category alignment...")
+print("\n[5/7] Computing LLM evaluation (multi-model consensus)...")
 
-# Compute purity for each topic
+evaluators = {
+    'gpt4': OpenAITopicEvaluator(),
+    'claude': AnthropicTopicEvaluator(),
+    'grok': GrokTopicEvaluator()
+}
+
+llm_results = {}
+for name, evaluator in evaluators.items():
+    try:
+        print(f"Running {name} evaluation...")
+        result = evaluator.evaluate_topic_set(topics_keywords, f"CTE BBC Experiment ({name})")
+        llm_results[name] = result
+        print(f"✅ {name}: coherence={result['scores']['coherence']:.3f}")
+    except Exception as e:
+        print(f"⚠️  {name} evaluation failed: {e}")
+
+# Compute consensus
+metrics = ['coherence', 'distinctiveness', 'diversity', 'semantic_integration', 'overall_score']
+consensus = {}
+
+for metric in metrics:
+    scores = [result['scores'][metric] for result in llm_results.values()]
+    if scores:
+        consensus[metric] = {
+            'mean': sum(scores) / len(scores),
+            'min': min(scores),
+            'max': max(scores),
+            'std': (sum((x - sum(scores)/len(scores))**2 for x in scores) / len(scores))**0.5,
+            'individual': {name: result['scores'][metric] for name, result in llm_results.items()}
+        }
+
+print(f"\n✅ LLM Consensus Coherence: {consensus['coherence']['mean']:.3f}")
+print(f"✅ LLM Consensus Overall: {consensus['overall_score']['mean']:.3f}")
+
+# ============================================================================
+# STEP 6: Compute Ground Truth Category Purity
+# ============================================================================
+
+print("\n[6/7] Computing ground truth category alignment...")
+
 topic_purities = []
 for cluster_id in range(5):
-    # Get documents in this cluster
     doc_indices = np.where(cluster_labels == cluster_id)[0]
 
     if len(doc_indices) > 0:
-        # Get their true labels
         cluster_true_labels = [original_labels[i] for i in doc_indices]
-
-        # Most common label
         label_counts = Counter(cluster_true_labels)
         most_common_label, max_count = label_counts.most_common(1)[0]
 
@@ -249,16 +279,14 @@ avg_purity = np.mean(topic_purities)
 print(f"✅ Average Category Purity: {avg_purity:.3f}")
 
 # ============================================================================
-# STEP 6: Compute Correlations and Discrimination Power
+# STEP 7: Compute Correlations and Discrimination Power
 # ============================================================================
 
-print("\n[6/6] Computing correlations and discrimination power...")
+print("\n[7/7] Computing correlations and discrimination power...")
 
-# Get per-topic scores for correlation
 stat_per_topic = stat_results['coherence']['topic_coherence']
 semantic_per_topic = neural_results['topic_coherence']
 
-# Correlations with ground truth purity (if we have per-topic scores)
 if len(stat_per_topic) == len(topic_purities) and len(semantic_per_topic) == len(topic_purities):
     r_stat, p_stat = pearsonr(stat_per_topic, topic_purities)
     r_semantic, p_semantic = pearsonr(semantic_per_topic, topic_purities)
@@ -266,7 +294,6 @@ if len(stat_per_topic) == len(topic_purities) and len(semantic_per_topic) == len
     print(f"✅ Statistical Coherence vs Purity: r={r_stat:.3f}, p={p_stat:.4f}")
     print(f"✅ Semantic Coherence vs Purity: r={r_semantic:.3f}, p={p_semantic:.4f}")
 
-    # Discrimination Power
     stat_range = max(stat_per_topic) - min(stat_per_topic)
     semantic_range = max(semantic_per_topic) - min(semantic_per_topic)
     discrimination_ratio = semantic_range / stat_range if stat_range > 0 else 0
@@ -284,7 +311,7 @@ else:
     discrimination_ratio = 0.0
 
 # ============================================================================
-# STEP 7: Save Results
+# STEP 8: Save Results
 # ============================================================================
 
 results = {
@@ -295,14 +322,16 @@ results = {
         "categories": label_names
     },
     "model": {
-        "type": "TF-IDF + K-Means",
+        "type": "CTE Model (Clustering + Topic Extraction)",
         "num_topics": 5,
-        "vocabulary_size": len(feature_names)
+        "vocabulary_size": len(word_embeddings_dict),
+        "embedding_model": "all-MiniLM-L6-v2"
     },
     "evaluator_info": {
         "stat_evaluator": "evaluation.StatEvaluator.TopicModelStatEvaluator",
         "neural_evaluator": "evaluation.NeuralEvaluator.TopicModelNeuralEvaluator",
-        "note": "Using NEW simplified evaluators from evaluation/ folder"
+        "llm_evaluators": list(llm_results.keys()),
+        "note": "Using CTE model + NEW evaluators + LLM consensus"
     },
     "statistical_metrics": {
         "coherence": float(stat_coherence),
@@ -316,6 +345,10 @@ results = {
         "overall_score": float(semantic_overall),
         "per_topic_coherence": [float(x) for x in semantic_per_topic]
     },
+    "llm_consensus": consensus,
+    "individual_llm_results": {
+        name: result['scores'] for name, result in llm_results.items()
+    },
     "ground_truth": {
         "avg_purity": float(avg_purity),
         "per_topic": [float(x) for x in topic_purities]
@@ -328,10 +361,17 @@ results = {
         "statistical_range": float(stat_range),
         "semantic_range": float(semantic_range),
         "ratio": float(discrimination_ratio)
+    },
+    "extracted_topics": {
+        f"topic_{i}": {
+            "keywords": topics_keywords[i][:10],
+            "purity": float(topic_purities[i]),
+            "dominant_category": label_names[Counter([original_labels[j] for j in np.where(cluster_labels == i)[0]]).most_common(1)[0][0]] if len(np.where(cluster_labels == i)[0]) > 0 else "unknown"
+        } for i in range(5)
     }
 }
 
-output_path = Path("docs/simple_bbc_results.json")
+output_path = Path("docs/cte_bbc_results.json")
 with open(output_path, 'w', encoding='utf-8') as f:
     json.dump(results, f, indent=2, ensure_ascii=False)
 
@@ -345,23 +385,25 @@ print("\n" + "="*70)
 print("EXPERIMENT RESULTS SUMMARY")
 print("="*70)
 
-print("\n1. OVERALL SCORES (NEW Evaluators)")
+print("\n1. OVERALL SCORES")
 print("-"*70)
 print(f"{'Metric':<40} {'Score':<10}")
 print("-"*70)
 print(f"{'Statistical Overall':<40} {stat_overall:>8.3f}")
 print(f"{'Semantic Overall':<40} {semantic_overall:>8.3f}")
+print(f"{'LLM Consensus Overall':<40} {consensus['overall_score']['mean']:>8.3f}")
 
 print("\n2. COHERENCE COMPARISON")
 print("-"*70)
 print(f"{'Statistical Coherence (NPMI norm)':<40} {stat_coherence:>8.3f}")
 print(f"{'Semantic Coherence (NEW method)':<40} {semantic_coherence:>8.3f}")
-print(f"{'Difference (Semantic - Statistical)':<40} {semantic_coherence - stat_coherence:>8.3f}")
+print(f"{'LLM Consensus Coherence':<40} {consensus['coherence']['mean']:>8.3f}")
 
 print("\n3. DISTINCTIVENESS COMPARISON")
 print("-"*70)
 print(f"{'Statistical Distinctiveness (JSD)':<40} {stat_distinctiveness:>8.3f}")
 print(f"{'Semantic Distinctiveness (NEW)':<40} {semantic_distinctiveness:>8.3f}")
+print(f"{'LLM Consensus Distinctiveness':<40} {consensus['distinctiveness']['mean']:>8.3f}")
 
 print("\n4. CORRELATION WITH GROUND TRUTH")
 print("-"*70)
@@ -371,8 +413,6 @@ if r_stat != 0.0 or r_semantic != 0.0:
     print(f"{'Statistical Coherence':<40} {r_stat:>8.3f}  {p_stat:>8.4f}")
     print(f"{'Semantic Coherence':<40} {r_semantic:>8.3f}  {p_semantic:>8.4f}")
     print(f"{'Improvement':<40} {r_semantic - r_stat:>8.3f}")
-else:
-    print("⚠️  Per-topic correlation not available")
 
 print("\n5. DISCRIMINATION POWER")
 print("-"*70)
@@ -380,20 +420,11 @@ if discrimination_ratio > 0:
     print(f"{'Statistical range':<40} {stat_range:>8.3f}")
     print(f"{'Semantic range':<40} {semantic_range:>8.3f}  ({discrimination_ratio:.2f}×)")
 
-    if discrimination_ratio > 2.0:
-        print(f"\n✅ Semantic metrics show {discrimination_ratio:.2f}× better discrimination")
-    elif discrimination_ratio > 1.0:
-        print(f"\n⚠️  Semantic metrics show {discrimination_ratio:.2f}× better discrimination (moderate)")
-    else:
-        print(f"\n❌ Statistical metrics have better discrimination")
-else:
-    print("⚠️  Discrimination power not available")
-
 print("\n6. KEY FINDINGS")
 print("-"*70)
 print(f"✅ Average category purity: {avg_purity:.2%}")
-print(f"✅ Semantic overall score: {semantic_overall:.3f}")
-print(f"✅ Statistical overall score: {stat_overall:.3f}")
+print(f"✅ CTE model vocabulary: {len(word_embeddings_dict)} words")
+print(f"✅ LLM-Semantic gap: {abs(consensus['coherence']['mean'] - semantic_coherence):.3f}")
 
 print("\n" + "="*70)
 print("✅ Experiment complete!")

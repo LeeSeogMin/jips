@@ -6,7 +6,8 @@
       "Bash(set TF_ENABLE_ONEDNN_OPTS=0)",
       "Bash(set TRANSFORMERS_NO_TF=1)",
       "Bash(TRANSFORMERS_NO_TF=1 TF_ENABLE_ONEDNN_OPTS=0 python:*)",
-      "mcp__shrimp-task-manager__process_thought"
+      "mcp__shrimp-task-manager__process_thought",
+      "Bash(jobs)"
     ],
     "deny": [],
     "ask": []
