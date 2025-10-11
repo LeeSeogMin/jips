@@ -7,7 +7,12 @@
       "Bash(set TRANSFORMERS_NO_TF=1)",
       "Bash(TRANSFORMERS_NO_TF=1 TF_ENABLE_ONEDNN_OPTS=0 python:*)",
       "mcp__shrimp-task-manager__process_thought",
-      "Bash(jobs)"
+      "Bash(jobs)",
+      "Bash(cat:*)",
+      "mcp__ide__executeCode",
+      "Bash(taskkill:*)",
+      "Read(//d/DEV/TopicModel_en_v4/evaluation/**)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

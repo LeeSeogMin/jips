@@ -178,20 +178,37 @@ class CTEModel(BaseTopicModel, nn.Module):
                     if batch_embeddings.size(0) == 0:
                         continue
                     
-                    # 1. 응집성: 토픽 내 문서들과의 유사도
-                    topic_sim = F.cosine_similarity(
-                        batch_embeddings.unsqueeze(1),
-                        topic_docs.unsqueeze(0),
-                        dim=2
-                    ).mean(dim=1)
-                    
-                    # 2. 구별성: 다른 토픽과의 차별성
-                    if other_docs is not None:
-                        other_sim = F.cosine_similarity(
+                    # 1. 응집성: 토픽 내 문서들과의 유사도 (청크 단위로 계산)
+                    topic_sim_scores = []
+                    chunk_size = 50  # 메모리 사용 제한
+                    for chunk_start in range(0, len(topic_docs), chunk_size):
+                        chunk_end = min(chunk_start + chunk_size, len(topic_docs))
+                        topic_docs_chunk = topic_docs[chunk_start:chunk_end]
+
+                        chunk_sim = F.cosine_similarity(
                             batch_embeddings.unsqueeze(1),
-                            other_docs.unsqueeze(0),
+                            topic_docs_chunk.unsqueeze(0),
                             dim=2
                         ).mean(dim=1)
+                        topic_sim_scores.append(chunk_sim)
+
+                    topic_sim = torch.stack(topic_sim_scores).mean(dim=0)
+
+                    # 2. 구별성: 다른 토픽과의 차별성 (청크 단위로 계산)
+                    if other_docs is not None:
+                        other_sim_scores = []
+                        for chunk_start in range(0, len(other_docs), chunk_size):
+                            chunk_end = min(chunk_start + chunk_size, len(other_docs))
+                            other_docs_chunk = other_docs[chunk_start:chunk_end]
+
+                            chunk_sim = F.cosine_similarity(
+                                batch_embeddings.unsqueeze(1),
+                                other_docs_chunk.unsqueeze(0),
+                                dim=2
+                            ).mean(dim=1)
+                            other_sim_scores.append(chunk_sim)
+
+                        other_sim = torch.stack(other_sim_scores).mean(dim=0)
                         distinctiveness = topic_sim - other_sim
                     else:
                         distinctiveness = topic_sim
@@ -247,34 +264,45 @@ class CTEModel(BaseTopicModel, nn.Module):
         
         return topics
 
-    def get_topics(self) -> Dict[str, Any]:
-        """토픽 및 키워드 결과 반환"""
+    def get_topics(self, top_n: int = 20) -> List[List[str]]:
+        """토픽 및 키워드 결과 반환
+
+        Args:
+            top_n: 각 토픽당 반환할 상위 키워드 수 (기본값: 20)
+
+        Returns:
+            토픽별 키워드 리스트
+        """
         try:
             topics_list = []
             for idx in range(self.num_topics):
                 if idx in self.topic_words and len(self.topic_words[idx]) > 0:
                     try:
-                        words = [word for word, _ in self.topic_words[idx][:20]]
+                        words = [word for word, _ in self.topic_words[idx][:top_n]]
                         topics_list.append(words)
                     except:
                         topics_list.append(['unknown'])
                 else:
                     topics_list.append(['unknown'])
             
-            return {
-                'topics': topics_list,
-                'topic_assignments': self.cluster_labels.tolist(),
-                'word_doc_freq': dict(self.word_doc_freq),
-                'co_doc_freq': dict(self.co_doc_freq)
-            }
+            return topics_list
         except Exception as e:
             print(f"Error in get_topics: {e}")
-            return {
-                'topics': [['unknown'] for _ in range(self.num_topics)],
-                'topic_assignments': [],
-                'word_doc_freq': {},
-                'co_doc_freq': {}
-            }
+            return [['unknown'] for _ in range(self.num_topics)]
+
+    def get_document_topics(self, embeddings: List[Any]) -> List[int]:
+        """문서별 토픽 할당 반환
+
+        Args:
+            embeddings: 문서 임베딩 리스트 (fit에서 사용한 것과 동일)
+
+        Returns:
+            문서별 토픽 인덱스 리스트
+        """
+        if not hasattr(self, 'cluster_labels'):
+            raise ValueError("모델이 학습되지 않았습니다. fit()을 먼저 호출하세요.")
+
+        return self.cluster_labels.tolist()
             
     def get_model_stats(self) -> Dict[str, Any]:
         if not self.fitted:
