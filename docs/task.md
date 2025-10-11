@@ -593,7 +593,7 @@
 
 
 
-    논문 manuscript 업데이트가 필요한 경우, phase6_7_8_completion_report.md의      
+    논문 manuscript 업데이트가 필요하다.  phase6_7_8_completion_report.md의      
   Phase 8 Checklist를 참조하여:
 
   1. Section 3.1 (Dataset Construction) 업데이트
