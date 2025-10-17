@@ -170,14 +170,18 @@ def main():
                        help='Run Anthropic Claude evaluation only')
     parser.add_argument('--openai', action='store_true',
                        help='Run OpenAI GPT-4 evaluation only')
+    parser.add_argument('--grok', action='store_true',
+                       help='Run Grok evaluation only')
     parser.add_argument('--both', action='store_true',
-                       help='Run both evaluations (default)')
+                       help='Run Anthropic and OpenAI (backward compatibility)')
+    parser.add_argument('--all', action='store_true',
+                       help='Run all three evaluations (default)')
 
     args = parser.parse_args()
 
-    # Default to both if no flag specified
-    if not (args.anthropic or args.openai or args.both):
-        args.both = True
+    # Default to all if no flag specified
+    if not (args.anthropic or args.openai or args.grok or args.both or args.all):
+        args.all = True
 
     try:
         # Load topic data
@@ -186,11 +190,14 @@ def main():
         results = {}
 
         # Run evaluations
-        if args.anthropic or args.both:
+        if args.anthropic or args.both or args.all:
             results['anthropic'] = run_anthropic_evaluation(topics, data_dir)
 
-        if args.openai or args.both:
+        if args.openai or args.both or args.all:
             results['openai'] = run_openai_evaluation(topics, data_dir)
+
+        if args.grok or args.all:
+            results['grok'] = run_grok_evaluation(topics, data_dir)
 
         # Final summary
         print("\n" + "="*70)
