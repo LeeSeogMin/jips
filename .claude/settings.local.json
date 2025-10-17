@@ -14,7 +14,8 @@
       "Read(//d/DEV/TopicModel_en_v4/evaluation/**)",
       "Bash(git checkout:*)",
       "Bash(git log:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []

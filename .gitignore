@@ -6,11 +6,14 @@ others/
 temp/
 data/
 llm_analyzers/
+pandoc/
 
 # Documentation and text files (except README.md and requirements.txt)
 *.md
 !README.md
 *.txt
+*.js
+*.docx
 !requirements.txt
 docs/
 
