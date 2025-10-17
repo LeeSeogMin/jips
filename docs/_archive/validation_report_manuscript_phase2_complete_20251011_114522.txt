@@ -1,0 +1,83 @@
+======================================================================
+MANUSCRIPT VALIDATION REPORT
+======================================================================
+
+Document: manuscript_phase2_complete_20251011_114522.docx
+Date: 1760150801.475811
+
+----------------------------------------------------------------------
+SUMMARY: 51 ✅ | 11 ⚠️ | 0 ❌
+----------------------------------------------------------------------
+
+⚠️  WARNINGS (REVIEW NEEDED):
+  ⚠️  Missing: Fleiss' kappa (Kappa terminology)
+  ⚠️  Missing: Section 2.5 (Comparison with LLM-based Evaluation Approaches)
+  ⚠️  Missing: Section 3.2.3 (Embedding Model Specification)
+  ⚠️  Missing: Section 3.3.2.1 (Parameter Configuration and Optimization)
+  ⚠️  Missing: Section 5.1 (Discrimination Power)
+  ⚠️  Missing: Section 5.2 (LLM Evaluation Alignment)
+  ⚠️  Missing: Section 5.3 (Methodological Limitations and Future Directions)
+  ⚠️  Missing: Appendix B (Toy Example Demonstrations)
+  ⚠️  Missing: γ_direct = 0.7 (Optimized parameter)
+  ⚠️  Missing: threshold_edge = 0.3 (Edge threshold)
+  ⚠️  Missing: reproducibility_guide.md (Reproducibility guide)
+
+✅ SUCCESSFUL VALIDATIONS:
+  ✅ Found: 6.12× (Discrimination factor)
+  ✅ Found: 15.3% (Semantic discrimination)
+  ✅ Found: 2.5% (Statistical discrimination)
+  ✅ Found: r = 0.987 (Semantic-LLM correlation)
+  ✅ Found: r = 0.988 (Statistical-LLM correlation)
+  ✅ Found: κ = 0.260 (Fleiss' kappa value)
+  ✅ Found: 0.179 (Distinct inter-topic similarity)
+  ✅ Found: 0.312 (Similar inter-topic similarity)
+  ✅ Found: 0.358 (More Similar inter-topic similarity)
+  ✅ Found: r = 0.859 (Pearson inter-rater correlation)
+  ✅ Found: MAE = 0.084 (Mean Absolute Error)
+  ✅ Found: +8.5% (Grok original bias)
+  ✅ Found: +2.8% (Grok after consensus bias)
+  ✅ Found: 67% (Bias reduction percentage)
+  ✅ Found: 17% (Variance reduction)
+  ✅ Correctly removed: 27.3%
+  ✅ Correctly removed: 36.5%
+  ✅ Correctly removed: r = 0.88
+  ✅ Correctly removed: r = 0.67
+  ✅ Correctly removed: Cohen's kappa
+  ✅ Correctly removed: Cohen's κ
+  ✅ Correctly removed: κ = 0.91
+  ✅ Correctly removed: κ = 0.89
+  ✅ Found: Section 3.1 (Experimental Data Construction)
+  ✅ Found: Section 3.3.3 (LLM-based Evaluation Protocol)
+  ✅ Found: Section 6.1 (Key Contributions)
+  ✅ Found: Section 6.2 (Limitations and Scope)
+  ✅ Found: Section 6.3 (Future Research Directions)
+  ✅ Found: Section 6.4 (Open Science)
+  ✅ Found: Section 6.5 (Concluding Remarks)
+  ✅ Found: Appendix C (Parameter Grid Search)
+  ✅ Found: Appendix D (Wikipedia Seed Page Lists)
+  ✅ Found: Appendix E (Robustness Analysis)
+  ✅ Found: October 8, 2024 (Wikipedia extraction date)
+  ✅ Found: sentence-transformers/all-MiniLM-L6-v2 (Embedding model)
+  ✅ Found: 384 (Embedding dimensions)
+  ✅ Found: GPT-4.1 (LLM model 1)
+  ✅ Found: Claude Sonnet 4.5 (LLM model 2)
+  ✅ Found: Grok (LLM model 3)
+  ✅ Found: temperature = 0.0 (LLM temperature)
+  ✅ Found: 3,445 (Distinct dataset size)
+  ✅ Found: 2,719 (Similar dataset size)
+  ✅ Found: 3,444 (More Similar dataset size)
+  ✅ Found: 142.3 (Distinct avg words)
+  ✅ Found: 135.8 (Similar avg words)
+  ✅ Found: 138.5 (More Similar avg words)
+  ✅ Found: Appendix D (Seed page lists reference)
+  ✅ Found: Appendix C (Grid search reference)
+  ✅ Found: Appendix E (Robustness reference)
+  ✅ Found: Zenodo (Data repository)
+  ✅ Found: GitHub (Code repository)
+
+----------------------------------------------------------------------
+NEXT STEPS:
+----------------------------------------------------------------------
+1. ⚠️  REVIEW WARNINGS - Some content may be missing
+2. Manually verify missing sections/content
+3. Apply content additions from 00_MASTER_UPDATE_GUIDE.md

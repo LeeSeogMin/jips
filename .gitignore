@@ -2,10 +2,10 @@
 .env
 
 # Data folder
-data/
-docs/
 others/
 temp/
+data/
+llm_analyzeres/
 
 
 # Python cache
@@ -27,10 +27,6 @@ ENV/
 .idea/
 *.swp
 *.swo
-*.md
-!README.md
-*.txt
-!requirements.txt
 
 # OS
 .DS_Store

@@ -7,18 +7,18 @@ from multiprocessing import freeze_support
 
 def main():
     # 1. Load data
-    df_distinct = pd.read_csv('data/distinct_topic.csv')
-    df_similar = pd.read_csv('data/similar_topic.csv')
-    df_more_similar = pd.read_csv('data/more_similar_topic.csv')
+    df_distinct = pd.read_csv('../data/distinct_topic.csv')
+    df_similar = pd.read_csv('../data/similar_topic.csv')
+    df_more_similar = pd.read_csv('../data/more_similar_topic.csv')
 
     # 2. Load TF-IDF derived keywords for each topic
-    with open('data/topics_distinct_tfidf.pkl', 'rb') as f:
+    with open('../data/topics_distinct_tfidf.pkl', 'rb') as f:
         topic_keywords_distinct = pickle.load(f)
         
-    with open('data/topics_similar_tfidf.pkl', 'rb') as f:
+    with open('../data/topics_similar_tfidf.pkl', 'rb') as f:
         topic_keywords_similar = pickle.load(f)
 
-    with open('data/topics_more_similar_tfidf.pkl', 'rb') as f:
+    with open('../data/topics_more_similar_tfidf.pkl', 'rb') as f:
         topic_keywords_more_similar = pickle.load(f)
 
     print("Loaded Keywords Preview:")

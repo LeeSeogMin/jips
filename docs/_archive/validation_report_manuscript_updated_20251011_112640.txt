@@ -1,0 +1,84 @@
+======================================================================
+MANUSCRIPT VALIDATION REPORT
+======================================================================
+
+Document: manuscript_updated_20251011_112640.docx
+Date: 1760149665.1566045
+
+----------------------------------------------------------------------
+SUMMARY: 24 ✅ | 37 ⚠️ | 1 ❌
+----------------------------------------------------------------------
+
+❌ CRITICAL ERRORS (MUST FIX):
+  ❌ FOUND OLD VALUE: 27.3% (Old discrimination (should be 6.12×))
+
+⚠️  WARNINGS (REVIEW NEEDED):
+  ⚠️  Missing: r = 0.859 (Pearson inter-rater correlation)
+  ⚠️  Missing: MAE = 0.084 (Mean Absolute Error)
+  ⚠️  Missing: +8.5% (Grok original bias)
+  ⚠️  Missing: +2.8% (Grok after consensus bias)
+  ⚠️  Missing: 67% (Bias reduction percentage)
+  ⚠️  Missing: 17% (Variance reduction)
+  ⚠️  Missing: Section 2.5 (Comparison with LLM-based Evaluation Approaches)
+  ⚠️  Missing: Section 3.2.3 (Embedding Model Specification)
+  ⚠️  Missing: Section 3.3.2.1 (Parameter Configuration and Optimization)
+  ⚠️  Missing: Section 5.2 (LLM Evaluation Alignment)
+  ⚠️  Missing: Section 5.3 (Methodological Limitations and Future Directions)
+  ⚠️  Missing: Section 6.1 (Key Contributions)
+  ⚠️  Missing: Section 6.2 (Limitations and Scope)
+  ⚠️  Missing: Section 6.3 (Future Research Directions)
+  ⚠️  Missing: Section 6.4 (Open Science)
+  ⚠️  Missing: Section 6.5 (Concluding Remarks)
+  ⚠️  Missing: Appendix B (Toy Example Demonstrations)
+  ⚠️  Missing: Appendix C (Parameter Grid Search)
+  ⚠️  Missing: Appendix D (Wikipedia Seed Page Lists)
+  ⚠️  Missing: Appendix E (Robustness Analysis)
+  ⚠️  Missing: October 8, 2024 (Wikipedia extraction date)
+  ⚠️  Missing: sentence-transformers/all-MiniLM-L6-v2 (Embedding model)
+  ⚠️  Missing: γ_direct = 0.7 (Optimized parameter)
+  ⚠️  Missing: threshold_edge = 0.3 (Edge threshold)
+  ⚠️  Missing: GPT-4.1 (LLM model 1)
+  ⚠️  Missing: Claude Sonnet 4.5 (LLM model 2)
+  ⚠️  Missing: Grok (LLM model 3)
+  ⚠️  Missing: temperature = 0.0 (LLM temperature)
+  ⚠️  Missing: 142.3 (Distinct avg words)
+  ⚠️  Missing: 135.8 (Similar avg words)
+  ⚠️  Missing: 138.5 (More Similar avg words)
+  ⚠️  Missing: Appendix D (Seed page lists reference)
+  ⚠️  Missing: Appendix C (Grid search reference)
+  ⚠️  Missing: Appendix E (Robustness reference)
+  ⚠️  Missing: reproducibility_guide.md (Reproducibility guide)
+  ⚠️  Missing: Zenodo (Data repository)
+  ⚠️  Missing: GitHub (Code repository)
+
+✅ SUCCESSFUL VALIDATIONS:
+  ✅ Found: 6.12× (Discrimination factor)
+  ✅ Found: 15.3% (Semantic discrimination)
+  ✅ Found: 2.5% (Statistical discrimination)
+  ✅ Found: r = 0.987 (Semantic-LLM correlation)
+  ✅ Found: r = 0.988 (Statistical-LLM correlation)
+  ✅ Found: Fleiss' kappa (Kappa terminology)
+  ✅ Found: κ = 0.260 (Fleiss' kappa value)
+  ✅ Found: 0.179 (Distinct inter-topic similarity)
+  ✅ Found: 0.312 (Similar inter-topic similarity)
+  ✅ Found: 0.358 (More Similar inter-topic similarity)
+  ✅ Correctly removed: 36.5%
+  ✅ Correctly removed: r = 0.88
+  ✅ Correctly removed: r = 0.67
+  ✅ Correctly removed: Cohen's kappa
+  ✅ Correctly removed: Cohen's κ
+  ✅ Correctly removed: κ = 0.91
+  ✅ Correctly removed: κ = 0.89
+  ✅ Found: Section 3.1 (Experimental Data Construction)
+  ✅ Found: Section 3.3.3 (LLM-based Evaluation Protocol)
+  ✅ Found: Section 5.1 (Discrimination Power)
+  ✅ Found: 384 (Embedding dimensions)
+  ✅ Found: 3,445 (Distinct dataset size)
+  ✅ Found: 2,719 (Similar dataset size)
+  ✅ Found: 3,444 (More Similar dataset size)
+
+----------------------------------------------------------------------
+NEXT STEPS:
+----------------------------------------------------------------------
+1. ❌ FIX CRITICAL ERRORS - Old values still present
+2. Review and apply missing numerical corrections

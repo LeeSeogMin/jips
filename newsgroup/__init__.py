@@ -1,4 +1,9 @@
-from evaluation.NeuralEvaluator import TopicModelNeuralEvaluator  # forward import
-from evaluation.StatEvaluator import TopicModelStatEvaluator  # forward import
+# Import evaluators from the correct location
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from NeuralEvaluator import TopicModelNeuralEvaluator
+from StatEvaluator import TopicModelStatEvaluator
 
 __all__ = ['TopicModelStatEvaluator', 'TopicModelNeuralEvaluator']

@@ -11,43 +11,63 @@ from torch import nn
 import logging
 
 class TopicModelNeuralEvaluator:
-    def __init__(self, device=None, data_dir='data'):
+    def __init__(self, device=None, data_dir='../data'):
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.data_dir = data_dir
+        
+        # Initialize sentence transformer model for dynamic embeddings
+        from sentence_transformers import SentenceTransformer
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
 
-        # Load pre-computed embeddings and topics
+        # Load pre-computed embeddings and topics (optional for newsgroup validation)
+        self.use_dynamic_embeddings = False
         for data_type in ['distinct', 'similar', 'more_similar']:
             embeddings_path = os.path.join(self.data_dir, f'embeddings_{data_type}.pkl')
             topics_path = os.path.join(self.data_dir, f'topics_{data_type}.pkl')
 
-            if not os.path.exists(embeddings_path):
-                raise FileNotFoundError(f"Required embeddings file not found: {embeddings_path}")
-            if not os.path.exists(topics_path):
-                raise FileNotFoundError(f"Required topics file not found: {topics_path}")
-
-            with open(embeddings_path, 'rb') as f:
-                setattr(self, f'embeddings_{data_type}', torch.tensor(pickle.load(f)).to(self.device))
-            with open(topics_path, 'rb') as f:
-                setattr(self, f'topics_{data_type}', pickle.load(f))
+            if os.path.exists(embeddings_path) and os.path.exists(topics_path):
+                with open(embeddings_path, 'rb') as f:
+                    setattr(self, f'embeddings_{data_type}', torch.tensor(pickle.load(f)).to(self.device))
+                with open(topics_path, 'rb') as f:
+                    setattr(self, f'topics_{data_type}', pickle.load(f))
+            else:
+                # Enable dynamic embeddings for newsgroup validation
+                self.use_dynamic_embeddings = True
 
     def _get_keyword_embeddings(self, keyword: str) -> List[torch.Tensor]:
         """특정 키워드의 임베딩 벡터들을 모든 데이터셋에서 검색"""
         embeddings = []
+        
+        # Use dynamic embeddings for newsgroup validation
+        if self.use_dynamic_embeddings:
+            # Generate embedding on-the-fly for newsgroup validation
+            embedding = self.model.encode([keyword], convert_to_tensor=True)
+            return [embedding[0]]
+        
         for data_type in ['distinct', 'similar', 'more_similar']:
-            indices = [i for i, words in enumerate(getattr(self, f'topics_{data_type}'))
-                      if keyword in words]
-            if indices:
-                embeddings.append(getattr(self, f'embeddings_{data_type}')[indices].mean(dim=0))
+            if hasattr(self, f'topics_{data_type}'):
+                indices = [i for i, words in enumerate(getattr(self, f'topics_{data_type}'))
+                          if keyword in words]
+                if indices and hasattr(self, f'embeddings_{data_type}'):
+                    embeddings.append(getattr(self, f'embeddings_{data_type}')[indices].mean(dim=0))
         return embeddings
 
     def _get_topic_embeddings(self, topic_keywords: List[str]) -> List[torch.Tensor]:
         """토픽의 키워드들에 대한 임베딩 벡터들을 모든 데이터셋에서 검색"""
         embeddings = []
+        
+        # Use dynamic embeddings for newsgroup validation
+        if self.use_dynamic_embeddings:
+            # Generate embeddings on-the-fly for newsgroup validation
+            topic_embeddings = self.model.encode(topic_keywords, convert_to_tensor=True)
+            return [topic_embeddings]
+        
         for data_type in ['distinct', 'similar', 'more_similar']:
-            indices = [i for i, words in enumerate(getattr(self, f'topics_{data_type}'))
-                      if any(keyword in words for keyword in topic_keywords)]
-            if indices:
-                embeddings.append(getattr(self, f'embeddings_{data_type}')[indices].mean(dim=0))
+            if hasattr(self, f'topics_{data_type}'):
+                indices = [i for i, words in enumerate(getattr(self, f'topics_{data_type}'))
+                          if any(keyword in words for keyword in topic_keywords)]
+                if indices and hasattr(self, f'embeddings_{data_type}'):
+                    embeddings.append(getattr(self, f'embeddings_{data_type}')[indices].mean(dim=0))
         return embeddings
 
     def _calculate_similarity_metrics(self, embeddings: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -64,16 +84,16 @@ class TopicModelNeuralEvaluator:
         """의미적 관계 그래프 구축 및 중요도 계산"""
         similarities = cosine_similarity(embeddings.cpu())
         graph = Graph()
-        
+
         # 그래프 구축
         n_keywords = len(keywords)
         for i in range(n_keywords):
             for j in range(i + 1, n_keywords):
                 if similarities[i, j] > 0.3:  # 임계값 기반 엣지 생성
                     graph.add_edge(i, j, weight=similarities[i, j])
-        
+
         # PageRank로 키워드 중요도 계산
-        importance_scores = pagerank(graph)
+            importance_scores = pagerank(graph)
         return graph, importance_scores
 
     def _calculate_hierarchical_similarity(self, embeddings: torch.Tensor) -> torch.Tensor:
@@ -89,7 +109,7 @@ class TopicModelNeuralEvaluator:
         
         # 간접적인 유사도 (2차 관계까지)
         indirect_sim = torch.matmul(direct_sim, direct_sim) / n_keywords
-        
+
         # 직접적 유사도와 간접적 유사도 결합
         hierarchical_sim = 0.7 * direct_sim + 0.3 * indirect_sim
         return hierarchical_sim
@@ -138,9 +158,9 @@ class TopicModelNeuralEvaluator:
                                 for i in range(n_keywords)}
                 
                 importance_matrix = np.array([[importance_scores[i] * importance_scores[j]
-                                            for j in range(n_keywords)]
-                                            for i in range(n_keywords)])
-                
+                                      for j in range(n_keywords)]
+                                     for i in range(n_keywords)])
+
                 # 행렬 크기 확인 및 조정
                 n = len(weighted_similarities)
                 m = len(importance_matrix)
@@ -150,8 +170,8 @@ class TopicModelNeuralEvaluator:
                     importance_matrix = importance_matrix[:min_size, :min_size]
                 
                 coherence_score = (weighted_similarities * importance_matrix).sum() / \
-                                (importance_matrix.sum() + 1e-10)  # 0으로 나누는 것 방지
-                
+                                 (importance_matrix.sum() + 1e-10)  # 0으로 나누는 것 방지
+
                 topic_coherence_scores.append(float(coherence_score))
             else:
                 topic_coherence_scores.append(0.0)
@@ -225,7 +245,7 @@ class TopicModelNeuralEvaluator:
         for i in range(n_topics):
             for j in range(i + 1, n_topics):
                 pair_scores[f'pair_{i}_{j}'] = float((1 - metrics['similarities'][i,j]) / 2)
-        
+
         return {
             'diversity_scores': diversity_scores.cpu().numpy().tolist(),
             'average_diversity': float(diversity_scores.mean().item()),
@@ -260,7 +280,7 @@ class TopicModelNeuralEvaluator:
             f'topic_{i}': float(P_T[i])
             for i in range(N)
         }
-        
+
         return {
             'distribution_diversity': float(distribution_diversity),
             'topic_proportions': topic_proportions
@@ -281,7 +301,7 @@ class TopicModelNeuralEvaluator:
             semantic_diversity_scores['average_diversity'] +
             distribution_diversity_scores['distribution_diversity']
         ) / 2
-        
+
         return {
             'Coherence': coherence_scores['average_coherence'],
             'Distinctiveness': distinctiveness_scores['average_distinctiveness'],
@@ -451,9 +471,9 @@ class TopicSemanticIntegration:
             similarities = torch.cosine_similarity(
                 topic_embeddings.unsqueeze(1),
                 topic_embeddings.unsqueeze(0),
-                dim=2
-            )
-
+            dim=2
+        )
+        
             mask = torch.ones_like(similarities) - torch.eye(len(topic_embeddings), device=self.device)
             similarities = similarities * mask
 
