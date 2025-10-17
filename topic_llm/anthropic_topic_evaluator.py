@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 class TopicEvaluatorLLM(BaseLLMEvaluator):
-    def __init__(self, model="claude-sonnet-4-5-20250929"):
-        super().__init__()
+    def __init__(self, model="claude-sonnet-4-5-20250929", temperature: float = 0.3, prompt_variant: str = 'standard'):
+        super().__init__(temperature, prompt_variant)
         self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         self.model = model
 
@@ -27,7 +27,7 @@ class TopicEvaluatorLLM(BaseLLMEvaluator):
         message = self.client.messages.create(
             model=self.model,
             max_tokens=150,
-            temperature=0,
+            temperature=self.temperature,
             system=self.system_prompt,
             messages=[
                 {

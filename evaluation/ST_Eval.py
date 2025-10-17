@@ -5,7 +5,7 @@ import pickle
 from StatEvaluator import TopicModelStatEvaluator
 from multiprocessing import freeze_support
 
-def main():
+def main(export_results=True, output_dir="outputs"):
     # 1. Load data
     df_distinct = pd.read_csv('../data/distinct_topic.csv')
     df_similar = pd.read_csv('../data/similar_topic.csv')
@@ -266,6 +266,51 @@ def main():
     print("=" * 60)
     pd.set_option('display.float_format', lambda x: '{:.3f}'.format(x))
     print(consistency_df.to_string())
+    
+    # Export results if requested
+    if export_results:
+        import os
+        
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Prepare export data
+        export_data = {
+            'method': 'ST_Eval',
+            'datasets': {
+                'distinct': {
+                    'metrics': distinct_df.to_dict(),
+                    'coherence_scores': distinct_results['coherence'],
+                    'distinctiveness_scores': distinct_results['distinctiveness'],
+                    'diversity_scores': distinct_results['diversity'],
+                    'overall_scores': distinct_results['overall_score']
+                },
+                'similar': {
+                    'metrics': similar_df.to_dict(),
+                    'coherence_scores': similar_results['coherence'],
+                    'distinctiveness_scores': similar_results['distinctiveness'],
+                    'diversity_scores': similar_results['diversity'],
+                    'overall_scores': similar_results['overall_score']
+                },
+                'more_similar': {
+                    'metrics': more_similar_df.to_dict(),
+                    'coherence_scores': more_similar_results['coherence'],
+                    'distinctiveness_scores': more_similar_results['distinctiveness'],
+                    'diversity_scores': more_similar_results['diversity'],
+                    'overall_scores': more_similar_results['overall_score']
+                }
+            },
+            'overall_consistency': consistency_df.to_dict(),
+            'dataset_comparison': comparison_df.to_dict()
+        }
+        
+        # Export to JSON
+        output_file = os.path.join(output_dir, 'st_results.json')
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(export_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"\nResults exported to: {output_file}")
+    
+    return distinct_df, similar_df, more_similar_df, consistency_df, comparison_df
 
 if __name__ == '__main__':
     freeze_support()  # Required for multiprocessing support on Windows

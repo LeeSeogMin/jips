@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 class TopicEvaluatorLLM(BaseLLMEvaluator):
-    def __init__(self, model="gpt-4.1"):
-        super().__init__()
+    def __init__(self, model="gpt-4.1", temperature: float = 0.3, prompt_variant: str = 'standard'):
+        super().__init__(temperature, prompt_variant)
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model
 
@@ -30,7 +30,7 @@ class TopicEvaluatorLLM(BaseLLMEvaluator):
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": f"Evaluate the following for {metric}:\n{prompt}\n\nProvide a score between 0 and 1 first, followed by your explanation. Format: <score>\n<explanation>"}
             ],
-            temperature=0,
+            temperature=self.temperature,
             max_tokens=150
         )
         return response.choices[0].message.content.strip()

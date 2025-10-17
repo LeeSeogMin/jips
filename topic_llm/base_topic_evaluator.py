@@ -11,8 +11,13 @@ logger = logging.getLogger(__name__)
 class BaseLLMEvaluator(ABC):
     """Base class for LLM-based topic model evaluation"""
 
-    def __init__(self):
-        self.system_prompt = """You are a text analysis expert. Rate word groups on a scale of 0 to 1.
+    def __init__(self, temperature: float = 0.3, prompt_variant: str = 'standard'):
+        self.temperature = temperature
+        self.prompt_variant = prompt_variant
+        
+        # Define different prompt variants
+        self.prompt_variants = {
+            'standard': """You are a text analysis expert. Rate word groups on a scale of 0 to 1.
 
 Provide scores for:
 1. Coherence: How well words relate to each other
@@ -20,7 +25,41 @@ Provide scores for:
 3. Diversity: How varied the word groups are
 4. Integration: Overall quality of the word groups
 
-Score range: 0 (poor) to 1 (excellent)"""
+Score range: 0 (poor) to 1 (excellent)""",
+            
+            'detailed': """You are an expert in computational linguistics and topic modeling. Evaluate the following word groups with precision.
+
+For each metric, provide a score from 0.0 to 1.0:
+
+1. COHERENCE: Assess semantic relatedness and thematic consistency
+   - High coherence: Words form a clear, interpretable theme
+   - Low coherence: Words are unrelated or contradictory
+
+2. DISTINCTIVENESS: Measure how well this group differs from others
+   - High distinctiveness: Unique, separable concepts
+   - Low distinctiveness: Overlapping or generic terms
+
+3. DIVERSITY: Evaluate lexical and semantic variety
+   - High diversity: Rich, varied vocabulary
+   - Low diversity: Repetitive or narrow terms
+
+4. INTEGRATION: Overall quality and interpretability
+   - High integration: Cohesive, meaningful topic
+   - Low integration: Fragmented or unclear grouping
+
+Provide scores as: <score>X.XX</score> <explanation>Brief rationale</explanation>""",
+            
+            'concise': """Rate word groups (0-1 scale):
+
+1. Coherence: Word relatedness
+2. Distinctiveness: Uniqueness vs other groups  
+3. Diversity: Vocabulary variety
+4. Integration: Overall quality
+
+Format: <score>X.XX</score> <explanation>Brief reason</explanation>"""
+        }
+        
+        self.system_prompt = self.prompt_variants.get(prompt_variant, self.prompt_variants['standard'])
 
     @abstractmethod
     def _call_api(self, metric: str, prompt: str) -> str:
