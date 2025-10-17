@@ -12,7 +12,9 @@
       "mcp__ide__executeCode",
       "Bash(taskkill:*)",
       "Read(//d/DEV/TopicModel_en_v4/evaluation/**)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git log:*)",
+      "Bash(git ls-tree:*)"
     ],
     "deny": [],
     "ask": []

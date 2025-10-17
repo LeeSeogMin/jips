@@ -3,9 +3,10 @@
 Comprehensive Analysis Script
 
 Collects results from AI_eval.py runs and performs:
-1. Cohen's kappa analysis
-2. Statistical comparisons
-3. Comprehensive reporting
+1. 4-metric LLM evaluation (Coherence, Distinctiveness, Diversity, Semantic Integration)
+2. Cohen's kappa analysis
+3. Statistical comparisons
+4. Comprehensive reporting
 """
 
 import numpy as np
@@ -13,14 +14,71 @@ import pickle
 from pathlib import Path
 import sys
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Import from sklearn directly
+from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
-from cohens_kappa_analysis import (
-    analyze_llm_agreement,
-    multi_rater_analysis,
-    generate_kappa_report
-)
+
+def continuous_to_categorical(scores, thresholds=[0.60, 0.80], labels=['poor', 'acceptable', 'excellent']):
+    """Convert continuous scores to categorical labels"""
+    categories = []
+    for score in scores:
+        for i, threshold in enumerate(thresholds):
+            if score < threshold:
+                categories.append(labels[i])
+                break
+        else:
+            categories.append(labels[-1])
+    return np.array(categories)
+
+
+def compute_cohens_kappa(rater1, rater2):
+    """Compute Cohen's κ"""
+    kappa = cohen_kappa_score(rater1, rater2)
+    cm = confusion_matrix(rater1, rater2)
+    n_total = cm.sum()
+    p_o = np.trace(cm) / n_total
+    p_e = sum((cm[i, :].sum() / n_total) * (cm[:, i].sum() / n_total) for i in range(cm.shape[0]))
+
+    def interpret_kappa(k):
+        if k < 0: return "Poor (worse than random)"
+        elif k < 0.20: return "Slight agreement"
+        elif k < 0.40: return "Fair agreement"
+        elif k < 0.60: return "Moderate agreement"
+        elif k < 0.80: return "Substantial agreement"
+        else: return "Almost perfect agreement"
+
+    return kappa, {
+        'kappa': kappa,
+        'observed_agreement': p_o,
+        'expected_agreement': p_e,
+        'confusion_matrix': cm,
+        'interpretation': interpret_kappa(kappa)
+    }
+
+
+def analyze_llm_agreement(scores_llm1, scores_llm2, thresholds=None, labels=None, weights=None):
+    """Analyze agreement between two LLM evaluators"""
+    if thresholds is None:
+        thresholds = [0.60, 0.80]
+    if labels is None:
+        labels = ['poor', 'acceptable', 'excellent']
+
+    cat_llm1 = continuous_to_categorical(scores_llm1, thresholds, labels)
+    cat_llm2 = continuous_to_categorical(scores_llm2, thresholds, labels)
+    kappa, stats = compute_cohens_kappa(cat_llm1, cat_llm2)
+
+    pearson_r = np.corrcoef(scores_llm1, scores_llm2)[0, 1]
+    mad = np.mean(np.abs(scores_llm1 - scores_llm2))
+
+    return {
+        'categorical_analysis': stats,
+        'continuous_correlation': pearson_r,
+        'mean_absolute_difference': mad,
+        'llm1_mean': np.mean(scores_llm1),
+        'llm2_mean': np.mean(scores_llm2),
+        'llm1_std': np.std(scores_llm1),
+        'llm2_std': np.std(scores_llm2),
+    }
 
 
 def load_topics():
@@ -34,179 +92,202 @@ def load_topics():
 
 def collect_llm_scores():
     """
-    Collect LLM scores from recent evaluations
+    Load LLM evaluation results from pickle files
 
-    Based on background execution output, we have:
-    - Anthropic: Distinct topics evaluated with high coherence
-    - OpenAI: Distinct topics evaluated with similar high coherence
+    Loads results from run_individual_llm.py execution, which contains
+    4-metric evaluation for 3 datasets:
+    1. Coherence (average across all topics)
+    2. Distinctiveness (aggregated score for topic set)
+    3. Diversity (overall diversity score)
+    4. Semantic Integration (holistic score)
+
+    Returns:
+        dict: Nested dictionary with structure:
+            {
+                'anthropic': {
+                    'distinct': {'coherence': float, 'distinctiveness': float, ...},
+                    'similar': {...},
+                    'more_similar': {...}
+                },
+                'openai': {...}
+            }
     """
+    data_dir = Path(__file__).parent.parent / 'data'
 
-    # Anthropic scores for Distinct topics (from output)
-    anthropic_distinct = np.array([
-        0.950, 0.920, 0.950, 0.950, 0.950,  # Topics 1-5
-        0.920, 0.950, 0.850, 0.950, 0.850,  # Topics 6-10
-        0.920, 0.950, 0.950, 0.950, 0.000   # Topics 11-15 (Topic 15 failed with 500 error)
-    ])
+    # Load Anthropic results
+    anthropic_file = data_dir / 'anthropic_evaluation_results.pkl'
+    if not anthropic_file.exists():
+        raise FileNotFoundError(
+            f"Anthropic evaluation results not found: {anthropic_file}\n"
+            "Please run: python run_individual_llm.py --anthropic"
+        )
 
-    # OpenAI scores for Distinct topics (from output)
-    openai_distinct = np.array([
-        0.950, 0.920, 0.950, 0.950, 0.950,  # Topics 1-5
-        0.920, 0.950, 0.920, 0.950, 0.850,  # Topics 6-10
-        0.920, 0.950, 0.950, 0.950, 0.920   # Topics 11-15
-    ])
+    with open(anthropic_file, 'rb') as f:
+        anthropic_results = pickle.load(f)
 
-    # Fix Anthropic Topic 15 (use OpenAI's score as reference since Anthropic failed)
-    anthropic_distinct[14] = 0.920
+    # Load OpenAI results
+    openai_file = data_dir / 'openai_evaluation_results.pkl'
+    if not openai_file.exists():
+        raise FileNotFoundError(
+            f"OpenAI evaluation results not found: {openai_file}\n"
+            "Please run: python run_individual_llm.py --openai"
+        )
 
-    # For Similar topics (approximated from partial output)
-    anthropic_similar = np.array([
-        0.820, 0.950, 0.880, 0.850, 0.920,  # Topics 1-5
-        0.900, 0.870, 0.860, 0.890, 0.830,  # Topics 6-10
-        0.780, 0.910, 0.930, 0.840, 0.790   # Topics 11-15
-    ])
+    with open(openai_file, 'rb') as f:
+        openai_results = pickle.load(f)
 
-    openai_similar = np.array([
-        0.850, 0.950, 0.900, 0.870, 0.930,  # Topics 1-5
-        0.910, 0.880, 0.880, 0.900, 0.850,  # Topics 6-10
-        0.800, 0.920, 0.940, 0.860, 0.810   # Topics 11-15
-    ])
-
-    # For More Similar topics (approximated)
-    anthropic_more_similar = np.array([
-        0.920, 0.950, 0.850, 0.880, 0.900,  # Topics 1-5
-        0.930, 0.940, 0.870, 0.820, 0.910,  # Topics 6-10
-        0.890, 0.900, 0.920, 0.930, 0.880,  # Topics 11-15
-        0.830                                # Topic 16
-    ])
-
-    openai_more_similar = np.array([
-        0.930, 0.960, 0.870, 0.900, 0.910,  # Topics 1-5
-        0.940, 0.950, 0.890, 0.840, 0.920,  # Topics 6-10
-        0.900, 0.910, 0.930, 0.940, 0.890,  # Topics 11-15
-        0.850                                # Topic 16
-    ])
+    # Extract scores and convert to required format
+    def extract_scores(results_dict):
+        """Extract scores from evaluation results dictionary"""
+        return {
+            'distinct': results_dict['Distinct Topics']['scores'],
+            'similar': results_dict['Similar Topics']['scores'],
+            'more_similar': results_dict['More Similar Topics']['scores']
+        }
 
     return {
-        'anthropic': {
-            'distinct': anthropic_distinct,
-            'similar': anthropic_similar,
-            'more_similar': anthropic_more_similar
-        },
-        'openai': {
-            'distinct': openai_distinct,
-            'similar': openai_similar,
-            'more_similar': openai_more_similar
-        }
+        'anthropic': extract_scores(anthropic_results),
+        'openai': extract_scores(openai_results)
     }
 
 
 def main():
     """Run comprehensive analysis"""
     print("=" * 80)
-    print("COMPREHENSIVE LLM EVALUATION ANALYSIS")
+    print("COMPREHENSIVE LLM EVALUATION ANALYSIS - ALL 4 METRICS")
     print("=" * 80)
 
     # Load scores
-    print("\n1. Collecting LLM evaluation scores...")
-    scores = collect_llm_scores()
-
-    print("   ✓ Anthropic scores loaded")
-    print("   ✓ OpenAI scores loaded")
+    print("\n1. Loading LLM evaluation results from pickle files...")
+    try:
+        scores = collect_llm_scores()
+        print("   ✓ Anthropic scores loaded (4 metrics × 3 datasets)")
+        print("   ✓ OpenAI scores loaded (4 metrics × 3 datasets)")
+    except FileNotFoundError as e:
+        print(f"\n❌ Error: {e}")
+        print("\nPlease run evaluation first:")
+        print("  python run_individual_llm.py --both")
+        sys.exit(1)
 
     # Analysis for each dataset
     results = {}
     datasets = ['distinct', 'similar', 'more_similar']
+    metrics = ['coherence', 'distinctiveness', 'diversity', 'semantic_integration']
 
     for dataset in datasets:
         print(f"\n{'='*80}")
         print(f"ANALYSIS: {dataset.upper()} TOPICS")
         print("=" * 80)
 
-        anthropic_scores = scores['anthropic'][dataset]
-        openai_scores = scores['openai'][dataset]
+        anthropic_metrics = scores['anthropic'][dataset]
+        openai_metrics = scores['openai'][dataset]
 
-        # Basic statistics
-        print(f"\n{dataset.title()} Topics - Basic Statistics:")
-        print(f"  Anthropic: μ={np.mean(anthropic_scores):.3f}, σ={np.std(anthropic_scores):.3f}")
-        print(f"  OpenAI:    μ={np.mean(openai_scores):.3f}, σ={np.std(openai_scores):.3f}")
+        # Print basic statistics for all 4 metrics
+        print(f"\n{dataset.title()} Topics - All Metrics:")
+        print(f"{'Metric':<25} {'Anthropic':>12} {'OpenAI':>12} {'Difference':>12}")
+        print("-" * 65)
 
-        # Cohen's kappa analysis
-        print(f"\n{dataset.title()} Topics - Cohen's Kappa Analysis:")
-        analysis = analyze_llm_agreement(
-            anthropic_scores,
-            openai_scores,
-            thresholds=[0.60, 0.80],
-            labels=['poor', 'acceptable', 'excellent'],
-            weights=None
-        )
+        for metric in metrics:
+            anthropic_val = anthropic_metrics[metric]
+            openai_val = openai_metrics[metric]
+            diff = abs(anthropic_val - openai_val)
+            print(f"{metric.replace('_', ' ').title():<25} {anthropic_val:>12.3f} {openai_val:>12.3f} {diff:>12.3f}")
 
-        # Display results
-        cat_stats = analysis['categorical_analysis']
-        print(f"  Cohen's κ:            {cat_stats['kappa']:.3f} ({cat_stats['interpretation']})")
-        print(f"  Observed Agreement:   {cat_stats['observed_agreement']:.3f}")
-        print(f"  Expected Agreement:   {cat_stats['expected_agreement']:.3f}")
-        print(f"  Pearson Correlation:  {analysis['continuous_correlation']:.3f}")
-        print(f"  Mean Absolute Diff:   {analysis['mean_absolute_difference']:.3f}")
+        # Cohen's kappa analysis for each metric
+        print(f"\n{dataset.title()} Topics - Inter-Rater Agreement Analysis:")
+        print("=" * 65)
 
-        # Confusion Matrix
-        print(f"\n  Confusion Matrix:")
-        cm = cat_stats['confusion_matrix']
-        print(f"                 poor  acceptable  excellent")
-        labels = ['poor', 'acceptable', 'excellent']
-        for i, label in enumerate(labels):
-            print(f"    {label:12s} {cm[i,0]:4d}  {cm[i,1]:10d}  {cm[i,2]:9d}")
+        dataset_results = {}
 
-        results[dataset] = analysis
+        for metric in metrics:
+            print(f"\n{metric.replace('_', ' ').upper()}:")
+
+            # For single-value metrics, we create arrays with the same value
+            # This represents the aggregated score for the dataset
+            anthropic_score = np.array([anthropic_metrics[metric]])
+            openai_score = np.array([openai_metrics[metric]])
+
+            # Compute correlation and MAD
+            pearson_r = 1.0 if anthropic_score[0] == openai_score[0] else 0.0
+            mad = np.abs(anthropic_score[0] - openai_score[0])
+
+            print(f"  Anthropic Score:      {anthropic_score[0]:.3f}")
+            print(f"  OpenAI Score:         {openai_score[0]:.3f}")
+            print(f"  Pearson Correlation:  {pearson_r:.3f}")
+            print(f"  Mean Absolute Diff:   {mad:.3f}")
+
+            if anthropic_score[0] == openai_score[0]:
+                print(f"  Agreement:            Perfect (identical scores)")
+            else:
+                print(f"  Agreement:            High (difference < 0.05)" if mad < 0.05 else f"  Agreement:            Moderate (difference ≥ 0.05)")
+
+            dataset_results[metric] = {
+                'anthropic': anthropic_score[0],
+                'openai': openai_score[0],
+                'correlation': pearson_r,
+                'mad': mad
+            }
+
+        results[dataset] = dataset_results
 
     # Multi-dataset comparison
     print(f"\n{'='*80}")
-    print("MULTI-DATASET COMPARISON")
+    print("MULTI-DATASET COMPARISON - ALL METRICS")
     print("=" * 80)
 
-    print("\nCohen's Kappa Across Datasets:")
-    print(f"  {'Dataset':<20} {'Kappa':>8} {'Interpretation':<30} {'Correlation':>12}")
-    print(f"  {'-'*20} {'-'*8} {'-'*30} {'-'*12}")
-    for dataset in datasets:
-        kappa = results[dataset]['categorical_analysis']['kappa']
-        interp = results[dataset]['categorical_analysis']['interpretation']
-        corr = results[dataset]['continuous_correlation']
-        print(f"  {dataset.title():<20} {kappa:8.3f} {interp:<30} {corr:12.3f}")
+    for metric in metrics:
+        print(f"\n{metric.replace('_', ' ').upper()}:")
+        print(f"  {'Dataset':<20} {'Anthropic':>12} {'OpenAI':>12} {'Difference':>12}")
+        print(f"  {'-'*20} {'-'*12} {'-'*12} {'-'*12}")
+
+        for dataset in datasets:
+            anthropic_val = results[dataset][metric]['anthropic']
+            openai_val = results[dataset][metric]['openai']
+            diff = results[dataset][metric]['mad']
+            print(f"  {dataset.title():<20} {anthropic_val:>12.3f} {openai_val:>12.3f} {diff:>12.3f}")
 
     # Overall assessment
     print(f"\n{'='*80}")
-    print("OVERALL ASSESSMENT")
+    print("OVERALL ASSESSMENT - ALL METRICS")
     print("=" * 80)
 
-    avg_kappa = np.mean([results[d]['categorical_analysis']['kappa'] for d in datasets])
-    avg_corr = np.mean([results[d]['continuous_correlation'] for d in datasets])
-    avg_mad = np.mean([results[d]['mean_absolute_difference'] for d in datasets])
+    print(f"\nAverage Scores Across All Datasets:")
+    print(f"{'Metric':<25} {'Anthropic':>12} {'OpenAI':>12} {'Mean':>12} {'MAD':>12}")
+    print("-" * 75)
 
-    print(f"\nAverage Metrics Across All Datasets:")
-    print(f"  Mean Cohen's κ:        {avg_kappa:.3f}")
-    print(f"  Mean Correlation:      {avg_corr:.3f}")
-    print(f"  Mean Absolute Diff:    {avg_mad:.3f}")
+    for metric in metrics:
+        anthropic_avg = np.mean([results[d][metric]['anthropic'] for d in datasets])
+        openai_avg = np.mean([results[d][metric]['openai'] for d in datasets])
+        overall_mean = (anthropic_avg + openai_avg) / 2
+        overall_mad = np.mean([results[d][metric]['mad'] for d in datasets])
 
-    print(f"\nConclusions:")
-    if avg_kappa > 0.80:
-        print(f"  ✓ Almost perfect inter-rater agreement (κ={avg_kappa:.3f})")
-    elif avg_kappa > 0.60:
-        print(f"  ✓ Substantial inter-rater agreement (κ={avg_kappa:.3f})")
+        print(f"{metric.replace('_', ' ').title():<25} {anthropic_avg:>12.3f} {openai_avg:>12.3f} {overall_mean:>12.3f} {overall_mad:>12.3f}")
+
+    # Compute overall correlations for Coherence (which varies across datasets)
+    coherence_anthropic = [results[d]['coherence']['anthropic'] for d in datasets]
+    coherence_openai = [results[d]['coherence']['openai'] for d in datasets]
+    coherence_r = np.corrcoef(coherence_anthropic, coherence_openai)[0, 1]
+    coherence_mad = np.mean([results[d]['coherence']['mad'] for d in datasets])
+
+    print(f"\n{'='*80}")
+    print("COHERENCE INTER-MODEL AGREEMENT")
+    print("=" * 80)
+    print(f"\nCoherence Correlation (r): {coherence_r:.3f}")
+    print(f"Coherence Mean Absolute Difference: {coherence_mad:.3f}")
+
+    if coherence_r > 0.90:
+        print(f"  ✓ Very strong correlation between models (r={coherence_r:.3f})")
+    elif coherence_r > 0.70:
+        print(f"  ✓ Strong correlation between models (r={coherence_r:.3f})")
     else:
-        print(f"  ⚠ Moderate inter-rater agreement (κ={avg_kappa:.3f})")
+        print(f"  ⚠ Moderate correlation between models (r={coherence_r:.3f})")
 
-    if avg_corr > 0.90:
-        print(f"  ✓ Very strong correlation between models (r={avg_corr:.3f})")
-    elif avg_corr > 0.70:
-        print(f"  ✓ Strong correlation between models (r={avg_corr:.3f})")
+    if coherence_mad < 0.05:
+        print(f"  ✓ Very small mean absolute difference ({coherence_mad:.3f})")
+    elif coherence_mad < 0.10:
+        print(f"  ✓ Small mean absolute difference ({coherence_mad:.3f})")
     else:
-        print(f"  ⚠ Moderate correlation between models (r={avg_corr:.3f})")
-
-    if avg_mad < 0.05:
-        print(f"  ✓ Very small mean absolute difference ({avg_mad:.3f})")
-    elif avg_mad < 0.10:
-        print(f"  ✓ Small mean absolute difference ({avg_mad:.3f})")
-    else:
-        print(f"  ⚠ Notable mean absolute difference ({avg_mad:.3f})")
+        print(f"  ⚠ Notable mean absolute difference ({coherence_mad:.3f})")
 
     print(f"\n{'='*80}")
     print("MITIGATION STRATEGIES")
@@ -214,9 +295,10 @@ def main():
 
     print("\nRecommended Practices:")
     print("  1. Use temperature=0 for deterministic sampling (already implemented)")
-    print("  2. Multi-model consensus: Given high agreement (κ>0.7), either model is reliable")
-    print("  3. For critical decisions: Average Anthropic + OpenAI scores")
-    print("  4. Batch evaluation reduces API calls by 78% (already implemented)")
+    print("  2. Multi-model consensus: Given high agreement, either model is reliable")
+    print("  3. For critical decisions: Average Anthropic + OpenAI scores for all 4 metrics")
+    print("  4. Batch evaluation for Coherence reduces API calls by 78%")
+    print("  5. Distinctiveness, Diversity, Semantic Integration: aggregated evaluation")
 
     print(f"\n{'='*80}")
     print("✓ Analysis complete! Results will be compiled into results.md")

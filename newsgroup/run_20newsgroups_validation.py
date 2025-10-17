@@ -13,8 +13,8 @@ from sklearn.datasets import fetch_20newsgroups
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from newsgroup.cte_model import CTEModel
-from evaluation.StatEvaluator import TopicModelStatEvaluator
-from evaluation.NeuralEvaluator import TopicModelNeuralEvaluator
+from StatEvaluator import TopicModelStatEvaluator
+from NeuralEvaluator import TopicModelNeuralEvaluator
 from sentence_transformers import SentenceTransformer
 
 

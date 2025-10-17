@@ -17,18 +17,18 @@ def calculate_statistics(results_list):
 
 def run_enhanced_evaluation(n_runs=5):
     # 1. Load preprocessed data
-    df_distinct = pd.read_csv('data/distinct_topic.csv')
-    df_similar = pd.read_csv('data/similar_topic.csv')
-    df_more_similar = pd.read_csv('data/more_similar_topic.csv')
+    df_distinct = pd.read_csv('../data/distinct_topic.csv')
+    df_similar = pd.read_csv('../data/similar_topic.csv')
+    df_more_similar = pd.read_csv('../data/more_similar_topic.csv')
 
     # 2. Load precomputed embeddings and topics
     datasets = ['distinct', 'similar', 'more_similar']
     data_dict = {}
     
     for dataset in datasets:
-        with open(f'data/embeddings_{dataset}.pkl', 'rb') as f:
+        with open(f'../data/embeddings_{dataset}.pkl', 'rb') as f:
             data_dict[f'embeddings_{dataset}'] = pickle.load(f)
-        with open(f'data/topics_{dataset}.pkl', 'rb') as f:
+        with open(f'../data/topics_{dataset}.pkl', 'rb') as f:
             data_dict[f'topics_{dataset}'] = pickle.load(f)
 
     # 3. Initialize the enhanced evaluator
