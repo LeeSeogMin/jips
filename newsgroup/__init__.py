@@ -1,7 +1,4 @@
-from .NeuralEvaluator import TopicModelNeuralEvaluator
-from .StatEvaluator import TopicModelStatEvaluator
+from evaluation.NeuralEvaluator import TopicModelNeuralEvaluator  # forward import
+from evaluation.StatEvaluator import TopicModelStatEvaluator  # forward import
 
-__all__ = [
-    'TopicModelStatEvaluator',
-    'TopicModelNeuralEvaluator'
-] 
+__all__ = ['TopicModelStatEvaluator', 'TopicModelNeuralEvaluator']
