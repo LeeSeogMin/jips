@@ -5,8 +5,14 @@
 others/
 temp/
 data/
-llm_analyzeres/
+llm_analyzers/
 
+# Documentation and text files (except README.md and requirements.txt)
+*.md
+!README.md
+*.txt
+!requirements.txt
+docs/
 
 # Python cache
 __pycache__/
