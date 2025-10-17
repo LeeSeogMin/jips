@@ -3,12 +3,12 @@
 Run LLM-based Topic Model Evaluation
 
 Performs 4-metric evaluation (Coherence, Distinctiveness, Diversity, Semantic Integration)
-using Anthropic Claude and/or OpenAI GPT-4 on three synthetic datasets.
+using Anthropic Claude, OpenAI GPT-4, and Grok on three synthetic datasets.
 
 Usage:
-    python run_individual_llm.py [--anthropic] [--openai] [--both]
+    python run_individual_llm.py [--anthropic] [--openai] [--grok] [--all]
 
-Default: Runs both evaluators
+Default: Runs all three evaluators
 """
 
 import os
@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 # Import evaluators
 from anthropic_topic_evaluator import TopicEvaluatorLLM as AnthropicEvaluator
 from openai_topic_evaluator import TopicEvaluatorLLM as OpenAIEvaluator
+from grok_topic_evaluator import TopicEvaluatorLLM as GrokEvaluator
 
 # Load environment variables
 load_dotenv()
@@ -116,6 +117,43 @@ def run_openai_evaluation(topics, data_dir):
     # Save detailed results
     for name, result in results.items():
         detail_file = data_dir / f'detailed_results_{name.lower().replace(" ", "_")}_openai.txt'
+        evaluator.save_detailed_results(result, str(detail_file))
+    print(f"  ✓ Detailed results saved")
+
+    print("="*70)
+    return results
+
+
+def run_grok_evaluation(topics, data_dir):
+    """Run Grok evaluation"""
+    print("\n" + "="*70)
+    print("GROK EVALUATION")
+    print("="*70)
+
+    evaluator = GrokEvaluator()
+
+    results = {
+        'Distinct Topics': evaluator.evaluate_topic_set(topics['distinct'], "Distinct Topics"),
+        'Similar Topics': evaluator.evaluate_topic_set(topics['similar'], "Similar Topics"),
+        'More Similar Topics': evaluator.evaluate_topic_set(topics['more_similar'], "More Similar Topics")
+    }
+
+    # Display summary
+    print("\n" + "="*70)
+    print("GROK RESULTS SUMMARY")
+    print("="*70)
+    comparison_table = evaluator.create_comparison_table(results)
+    print(comparison_table)
+
+    # Save results
+    output_file = data_dir / 'grok_evaluation_results.pkl'
+    with open(output_file, 'wb') as f:
+        pickle.dump(results, f)
+    print(f"\n  ✓ Results saved to: {output_file}")
+
+    # Save detailed results
+    for name, result in results.items():
+        detail_file = data_dir / f'detailed_results_{name.lower().replace(" ", "_")}_grok.txt'
         evaluator.save_detailed_results(result, str(detail_file))
     print(f"  ✓ Detailed results saved")
 

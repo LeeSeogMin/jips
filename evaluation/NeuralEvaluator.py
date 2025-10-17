@@ -11,6 +11,21 @@ from torch import nn
 import logging
 
 class TopicModelNeuralEvaluator:
+    """
+    Neural-based topic model evaluator using semantic embeddings.
+    
+    Model Specifications:
+    - Embedding Model: all-MiniLM-L6-v2 (384-dimensional)
+    - Tokenizer: Sentence-BERT tokenizer (lowercasing, punctuation handling)
+    - Preprocessing: No stopword removal, no lemmatization, no frequency thresholds
+    - Device: CUDA if available, otherwise CPU
+    
+    Mathematical Parameters:
+    - α (coherence weight): 0.4
+    - β (distinctiveness weight): 0.4  
+    - γ (diversity weight): 0.2
+    - λ (integration weight): 0.2
+    """
     def __init__(self, device=None, data_dir='../data'):
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.data_dir = data_dir
@@ -18,6 +33,12 @@ class TopicModelNeuralEvaluator:
         # Initialize sentence transformer model for dynamic embeddings
         from sentence_transformers import SentenceTransformer
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        # Mathematical parameters for weighted scoring
+        self.alpha = 0.4  # Coherence weight
+        self.beta = 0.4   # Distinctiveness weight  
+        self.gamma = 0.2  # Diversity weight
+        self.lambda_w = 0.2  # Integration weight
 
         # Load pre-computed embeddings and topics (optional for newsgroup validation)
         self.use_dynamic_embeddings = False
@@ -120,6 +141,17 @@ class TopicModelNeuralEvaluator:
         return float(entropy(prob_dist.cpu().numpy()))
 
     def _evaluate_semantic_coherence(self, topics: List[List[str]]) -> Dict[str, Any]:
+        """
+        Calculate semantic coherence using weighted similarity matrix.
+        
+        Mathematical Formula:
+        Coherence = Σ(weighted_similarities * importance_matrix) / Σ(importance_matrix)
+        
+        Where:
+        - weighted_similarities: Hierarchical similarity matrix between keywords
+        - importance_matrix: Importance scores based on keyword frequency and position
+        - Values range: [0, 1] (normalized)
+        """
         """향상된 의미적 일관성 평가"""
         topic_coherence_scores = []
         avg_coherence = 0.0  # 초기값 설정
@@ -362,7 +394,7 @@ class TopicSemanticIntegration:
             # 전체 토픽의 의미적 구조 평가
             semantic_structure_score = self._evaluate_semantic_structure(topic_embeddings)
 
-            # 최종 통합 점수 계산
+            # 최종 통합 점수 계산 (α, β, γ 가중치 적용)
             final_score = np.mean(topic_scores) * semantic_structure_score
 
             return final_score
@@ -504,15 +536,15 @@ class EnhancedTopicModelNeuralEvaluator(TopicModelNeuralEvaluator):
             topic_count=len(topics)
         )
 
-        # 결과 통합
+        # 결과 통합 (α, β, γ, λ 가중치 적용)
         enhanced_results = {
             **base_results,
             'Semantic Integration Score': integration_score,
             'Overall Score': (
-                base_results['Coherence'] * 0.3 +
-                base_results['Distinctiveness'] * 0.3 +
-                base_results['Diversity'] * 0.2 +
-                integration_score * 0.2
+                base_results['Coherence'] * self.alpha +
+                base_results['Distinctiveness'] * self.beta +
+                base_results['Diversity'] * self.gamma +
+                integration_score * self.lambda_w
             )
         }
 

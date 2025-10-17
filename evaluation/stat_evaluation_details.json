@@ -1,0 +1,20 @@
+{
+  "distinct_topics": {
+    "coherence": 0.6345986640458999,
+    "distinctiveness": 0.20302489905673077,
+    "diversity": 0.7733333333333333,
+    "overall_score": 0.5328734684066359
+  },
+  "similar_topics": {
+    "coherence": 0.5856501001196167,
+    "distinctiveness": 0.16841003425552814,
+    "diversity": 0.6266666666666667,
+    "overall_score": 0.46868139366980016
+  },
+  "more_similar_topics": {
+    "coherence": 0.5850362978330528,
+    "distinctiveness": 0.2120688248816301,
+    "diversity": 0.625,
+    "overall_score": 0.4811387963810154
+  }
+}
