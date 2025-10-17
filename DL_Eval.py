@@ -1,9 +1,8 @@
 # DL_Eval.py
 import numpy as np
-import json
 import pandas as pd
 import pickle
-from enhanced_evaluator import EnhancedTopicModelNeuralEvaluator
+from NeuralEvaluator import EnhancedTopicModelNeuralEvaluator
 
 def calculate_statistics(results_list):
     """
@@ -125,11 +124,8 @@ def run_enhanced_evaluation(n_runs=5):
         topic_df.columns = [f'Keyword {i+1}' for i in range(max_keywords)]
         
         print(topic_df.to_string())
-        
-        # Save topic keywords
-        topic_df.to_csv(f'topic_keywords_{dataset_name}.csv')
 
-    # 8. Display and save results
+    # 8. Display results
     pd.set_option('display.float_format', lambda x: '%.3f' % x)
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', None)
@@ -143,7 +139,6 @@ def run_enhanced_evaluation(n_runs=5):
         print(f"\n{dataset_name.replace('_', ' ').title()} Topics")
         print("-"*60)
         print(table.to_string())
-        table.to_csv(f'evaluation_results_{dataset_name}.csv')
     
     # 9. Create overall consistency table (average metrics and CV across datasets)
     overall_means = np.mean([table['Mean'].values for table in dataset_tables.values()], axis=0)
@@ -157,7 +152,6 @@ def run_enhanced_evaluation(n_runs=5):
     print("\nOverall Consistency Analysis (Averaged across datasets)")
     print("="*60)
     print(consistency_summary.to_string())
-    consistency_summary.to_csv('overall_consistency.csv')
     
     # 10. Create dataset comparison table (average metrics across runs)
     comparison_data = {
@@ -173,32 +167,6 @@ def run_enhanced_evaluation(n_runs=5):
     print("\nDataset Comparison (Average Metrics)")
     print("="*60)
     print(comparison_table.to_string())
-    comparison_table.to_csv('dataset_comparison.csv')
-    
-    # Save detailed results as JSON
-    with open('detailed_evaluation_results.json', 'w') as f:
-        json.dump({
-            'all_runs': all_results,
-            'statistics': {
-                dataset: {
-                    'mean': table['Mean'].tolist(),
-                    'cv': table['CV (%)'].tolist()
-                }
-                for dataset, table in dataset_tables.items()
-            },
-            'overall_consistency': {
-                'mean': consistency_summary['Mean'].tolist(),
-                'average_cv': consistency_summary['CV (%)'].tolist()
-            },
-            'dataset_comparison': {
-                dataset: values.tolist()
-                for dataset, values in comparison_table.items()
-            },
-            'metadata': {
-                'n_runs': n_runs,
-                'metrics': dict(zip(metrics, metric_display_names))
-            }
-        }, f, indent=2, default=str)
 
     return dataset_tables, consistency_summary, comparison_table
 
