@@ -3,12 +3,18 @@
 
 # Data folder
 data/
+docs/
+others/
+temp/
+
 
 # Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.claude/
+cache/
 
 # Virtual environment
 venv/
