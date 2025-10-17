@@ -277,27 +277,9 @@ def main(export_results=True, output_dir="outputs"):
         export_data = {
             'method': 'ST_Eval',
             'datasets': {
-                'distinct': {
-                    'metrics': distinct_df.to_dict(),
-                    'coherence_scores': distinct_results['coherence'],
-                    'distinctiveness_scores': distinct_results['distinctiveness'],
-                    'diversity_scores': distinct_results['diversity'],
-                    'overall_scores': distinct_results['overall_score']
-                },
-                'similar': {
-                    'metrics': similar_df.to_dict(),
-                    'coherence_scores': similar_results['coherence'],
-                    'distinctiveness_scores': similar_results['distinctiveness'],
-                    'diversity_scores': similar_results['diversity'],
-                    'overall_scores': similar_results['overall_score']
-                },
-                'more_similar': {
-                    'metrics': more_similar_df.to_dict(),
-                    'coherence_scores': more_similar_results['coherence'],
-                    'distinctiveness_scores': more_similar_results['distinctiveness'],
-                    'diversity_scores': more_similar_results['diversity'],
-                    'overall_scores': more_similar_results['overall_score']
-                }
+                'distinct': avg_distinct,
+                'similar': avg_similar,
+                'more_similar': avg_more_similar
             },
             'overall_consistency': consistency_df.to_dict(),
             'dataset_comparison': comparison_df.to_dict()
@@ -310,7 +292,7 @@ def main(export_results=True, output_dir="outputs"):
         
         print(f"\nResults exported to: {output_file}")
     
-    return distinct_df, similar_df, more_similar_df, consistency_df, comparison_df
+    return avg_distinct, avg_similar, avg_more_similar, consistency_df, comparison_df
 
 if __name__ == '__main__':
     freeze_support()  # Required for multiprocessing support on Windows

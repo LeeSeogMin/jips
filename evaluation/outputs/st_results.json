@@ -1,0 +1,57 @@
+{
+  "method": "ST_Eval",
+  "datasets": {
+    "distinct": {
+      "coherence": 0.6345986640458999,
+      "distinctiveness": 0.20302489905673077,
+      "diversity": 0.7733333333333333,
+      "overall_score": 0.5328734684066359
+    },
+    "similar": {
+      "coherence": 0.5856501001196167,
+      "distinctiveness": 0.16841003425552814,
+      "diversity": 0.6266666666666667,
+      "overall_score": 0.46868139366980016
+    },
+    "more_similar": {
+      "coherence": 0.5850362978330528,
+      "distinctiveness": 0.2120688248816301,
+      "diversity": 0.625,
+      "overall_score": 0.4811387963810154
+    }
+  },
+  "overall_consistency": {
+    "Mean": {
+      "Coherence": 0.6017616873328565,
+      "Distinctiveness": 0.19450125273129634,
+      "Diversity": 0.6749999999999999,
+      "Overall Score": 0.49423121948581716
+    },
+    "CV (%)": {
+      "Coherence": 3.858770259946426,
+      "Distinctiveness": 9.673510301563715,
+      "Diversity": 10.301554942956308,
+      "Overall Score": 5.62357346735276
+    }
+  },
+  "dataset_comparison": {
+    "Distinct": {
+      "Coherence": 0.6345986640458999,
+      "Distinctiveness": 0.20302489905673077,
+      "Diversity": 0.7733333333333333,
+      "Overall Score": 0.5328734684066359
+    },
+    "Similar": {
+      "Coherence": 0.5856501001196167,
+      "Distinctiveness": 0.16841003425552814,
+      "Diversity": 0.6266666666666667,
+      "Overall Score": 0.46868139366980016
+    },
+    "More Similar": {
+      "Coherence": 0.5850362978330528,
+      "Distinctiveness": 0.2120688248816301,
+      "Diversity": 0.625,
+      "Overall Score": 0.4811387963810154
+    }
+  }
+}

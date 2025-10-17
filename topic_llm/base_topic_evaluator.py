@@ -123,7 +123,7 @@ Format: <score>X.XX</score> <explanation>Brief reason</explanation>"""
             raise Exception(f"Failed to evaluate {metric}: {str(e)}")
 
     def evaluate_coherence(self, keywords: List[str]) -> Tuple[float, str]:
-        """Evaluate semantic coherence of keywords within a topic"""
+        """Evaluate semantic coherence of keywords within a topic (legacy method)"""
         prompt = f"""Rate the coherence of these words: {', '.join(keywords)}
 
 Consider:
@@ -131,6 +131,25 @@ Consider:
 2. Whether they form a clear theme
 3. If any words seem unrelated
 4. Overall consistency"""
+
+        return self._get_llm_score("coherence", prompt)
+
+    def evaluate_coherence_aggregated(self, all_topics: List[List[str]]) -> Tuple[float, str]:
+        """Evaluate overall coherence of the topic set (manuscript method)"""
+        topics_str = "\n".join([f"Topic {i+1}: {', '.join(topic)}" for i, topic in enumerate(all_topics)])
+        prompt = f"""Evaluate the overall semantic coherence across these topics:
+{topics_str}
+
+Consider:
+1. How well words within each topic relate to each other
+2. Whether each topic forms a clear, interpretable theme
+3. Consistency of word relationships within topics
+4. Overall quality of thematic coherence
+
+Provide a score between 0 and 1 where:
+- 1.0: All topics are highly coherent with clear themes
+- 0.5: Moderate coherence with some unclear topics
+- 0.0: Topics lack coherence or have unrelated words"""
 
         return self._get_llm_score("coherence", prompt)
 
@@ -203,19 +222,13 @@ Consider:
             'explanations': {}
         }
 
-        # 1. Evaluate coherence for each topic
+        # 1. Evaluate coherence (aggregated method - manuscript approach)
         print("\nEvaluating Coherence...")
-        coherence_scores = []
-        coherence_explanations = []
-        for i, keywords in enumerate(topic_keywords, 1):
-            score, explanation = self.evaluate_coherence(keywords)
-            print(f"Topic {i}: {score:.3f}")
-            print(f"Explanation: {explanation}\n")
-            coherence_scores.append(score)
-            coherence_explanations.append(explanation)
-        results['scores']['coherence'] = np.mean(coherence_scores)
-        results['explanations']['coherence'] = coherence_explanations
-        print(f"Average Coherence Score: {results['scores']['coherence']:.3f}")
+        score, explanation = self.evaluate_coherence_aggregated(topic_keywords)
+        print(f"Coherence Score: {score:.3f}")
+        print(f"Explanation: {explanation}\n")
+        results['scores']['coherence'] = score
+        results['explanations']['coherence'] = explanation
 
         # 2. Evaluate distinctiveness (aggregated method - manuscript approach)
         print("\nEvaluating Distinctiveness...")

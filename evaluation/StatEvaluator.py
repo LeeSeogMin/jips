@@ -5,6 +5,20 @@ from itertools import combinations
 from collections import Counter
 
 class TopicModelStatEvaluator:
+   """
+   Statistical metrics-based topic model evaluator using TF-IDF and co-occurrence.
+   
+   Model Specifications:
+   - TF-IDF Model: Scikit-learn TfidfVectorizer
+   - Preprocessing: Lowercasing, tokenization, stopword removal
+   - Co-occurrence: Document-level word co-occurrence statistics
+   - Normalization: NPMI normalization for coherence scores
+   
+   Mathematical Parameters:
+   - NPMI normalization: (PMI + 1) / 2 for [0,1] range
+   - Jensen-Shannon Divergence for distinctiveness
+   - Entropy-based diversity calculation
+   """
    def __init__(self):
        """
        Statistical metrics-based topic model evaluator
@@ -88,7 +102,19 @@ class TopicModelStatEvaluator:
        }
 
    def _calculate_coherence(self, topics: List[List[str]]) -> float:
-       """Calculate topic coherence (evaluation 폴더 공식)"""
+       """
+       Calculate topic coherence using NPMI (Normalized Pointwise Mutual Information).
+       
+       Mathematical Formula:
+       NPMI = PMI / (-log(p(w1,w2)))
+       Normalized NPMI = (NPMI + 1) / 2
+       
+       Where:
+       - PMI = log(p(w1,w2) / (p(w1) * p(w2)))
+       - p(w1,w2): Co-occurrence probability of word pairs
+       - p(w1), p(w2): Individual word probabilities
+       - Values range: [0, 1] (normalized)
+       """
        try:
            if not topics:
                return 0.0
