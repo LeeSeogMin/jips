@@ -34,6 +34,7 @@ The manuscript reads well overall but contains occasional redundancy and formatt
 Make sure the conclusion’s numeric claims and limitation statements match the body and abstract. Explicitly list main limitations and concrete future work items (multi-lingual extension, low-resource behavior, reducing LLM cost).
 
 Second Reviewer Comments
+
 Comments to Author(s)
 1. Please add at least one simple public real-world dataset, because relying solely on three Wikipedia-based synthetic datasets limits external validity.
 
