@@ -15,7 +15,7 @@ def calculate_statistics(results_list):
     
     return mean_values, cv_values
 
-def run_enhanced_evaluation(n_runs=5):
+def run_enhanced_evaluation(n_runs=5, export_results=True, output_dir="outputs"):
     # 1. Load preprocessed data
     df_distinct = pd.read_csv('../data/distinct_topic.csv')
     df_similar = pd.read_csv('../data/similar_topic.csv')
@@ -168,6 +168,40 @@ def run_enhanced_evaluation(n_runs=5):
     print("="*60)
     print(comparison_table.to_string())
 
+    # 11. Export results if requested
+    if export_results:
+        import json
+        import os
+        
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Prepare export data
+        export_data = {
+            'method': 'DL_Eval',
+            'n_runs': n_runs,
+            'datasets': {},
+            'overall_consistency': consistency_summary.to_dict(),
+            'dataset_comparison': comparison_table.to_dict()
+        }
+        
+        # Add dataset-specific results
+        for dataset_name, table in dataset_tables.items():
+            export_data['datasets'][dataset_name] = {
+                'metrics': table.to_dict(),
+                'coherence_scores': [run[0] for run in all_results[dataset_name]],
+                'distinctiveness_scores': [run[1] for run in all_results[dataset_name]],
+                'diversity_scores': [run[2] for run in all_results[dataset_name]],
+                'semantic_integration_scores': [run[3] for run in all_results[dataset_name]],
+                'overall_scores': [run[4] for run in all_results[dataset_name]]
+            }
+        
+        # Export to JSON
+        output_file = os.path.join(output_dir, 'dl_results.json')
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(export_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"\nResults exported to: {output_file}")
+    
     return dataset_tables, consistency_summary, comparison_table
 
 if __name__ == "__main__":
