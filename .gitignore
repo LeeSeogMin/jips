@@ -27,6 +27,10 @@ ENV/
 .idea/
 *.swp
 *.swo
+*.md
+!README.md
+*.txt
+!requirements.txt
 
 # OS
 .DS_Store
