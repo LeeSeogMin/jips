@@ -10,7 +10,7 @@ A comprehensive evaluation framework for neural topic models using semantic metr
 This project introduces semantic-based evaluation metrics tailored for modern topic models that leverage BERT embeddings and neural architectures. Traditional statistical metrics (PMI, NPMI, CV) fail to capture semantic aspects of neural topic models. Our framework addresses this gap through:
 
 - **Semantic Metrics**: 33.2:1 discrimination ratio vs. 11.5:1 for statistical methods
-- **LLM Validation**: Three-model ensemble (Claude-sonnet-4.5, GPT-4.1, Grok-4) reducing bias from 8.5% to 2.8%
+- **LLM Validation**: Three-model ensemble (Claude-sonnet-4.5 from Anthropic, GPT-4.1 from OpenAI, Grok-4 from xAI) reducing bias from 8.5% to 2.8%
 - **Visualization Robustness**: Systematic validation using t-SNE and UMAP with quantitative trustworthiness metrics (0.9589-0.9728)
 - **Controlled Datasets**: Three synthetic datasets with varying topic overlap (0.179, 0.312, 0.358)
 
