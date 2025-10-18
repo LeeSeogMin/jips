@@ -90,6 +90,13 @@ jips/
 │   ├── anthropic_topic_evaluator.py
 │   ├── openai_topic_evaluator.py
 │   └── grok_topic_evaluator.py
+├── newsgroup/                     # 20 Newsgroups validation
+│   ├── cte_model.py              # CTE topic model implementation
+│   ├── metrics_validation.py     # Manuscript Section 5.X reproduction
+│   ├── report_utils.py           # Utility functions (NPMI, Spearman, etc.)
+│   └── metrics_validation_output.log  # Validation results
+├── docs/                          # Documentation
+│   └── manuscript_section.md     # Detailed manuscript content
 ├── keyword_extraction.py          # Topic extraction and visualization
 ├── data_gen.ipynb                # Dataset generation notebook
 └── requirements.txt              # Python dependencies
@@ -153,6 +160,51 @@ grok_scores = grok.evaluate(topics)
 # Ensemble aggregation
 ensemble_score = (claude_scores + gpt_scores + grok_scores) / 3
 ```
+
+### 5. Reproduce 20 Newsgroups Validation (Manuscript Section 5.X)
+
+This script reproduces the public dataset validation results reported in the manuscript.
+
+```bash
+# Navigate to project directory
+cd jips
+
+# Activate virtual environment
+source venv/Scripts/activate  # Windows
+source venv/bin/activate       # Linux/Mac
+
+# Run validation script
+python newsgroup/metrics_validation.py
+```
+
+**Outputs:**
+- **LLM Alignment by Provider**: Spearman correlation and pairwise accuracy for Statistical vs Semantic metrics
+- **Label-based Separation**: Silhouette, NMI, and ARI metrics
+- **Stability Analysis**: Bootstrap coefficient of variation
+- **Per-topic Metrics**: Detailed coherence, distinctiveness, and diversity scores
+
+**Expected Results (seed=42):**
+```
+-- LLM Alignment by Provider (Coherence) --
+   LLM Spearman_Stat Spearman_Sem PW_Stat PW_Sem LLM_AvgCoh
+Claude        -0.108        0.632   0.500  0.600      0.786
+OpenAI        -0.105        0.667   0.400  0.700      0.772
+  Grok         0.079        0.821   0.400  0.800      0.744
+
+-- Stability (Bootstrap CV of Coherence) --
+CV Stat: 49.9%, CV Sem: 7.6%
+```
+
+**Key Findings:**
+- ✅ Semantic metrics align 70% better with LLM consensus (Spearman ρ: 0.632-0.821 vs -0.108~0.079)
+- ✅ Semantic metrics are 85% more stable (CV: 7.6% vs 49.9%)
+- ✅ Pairwise accuracy favors semantic approach (60-80% vs 40-50%)
+
+**Reproducibility Notes:**
+- Random seed: 42 (fixed for CTE model and data sampling)
+- LLM temperature: 0.0 (deterministic evaluation)
+- Total API calls: 15 (5 topics × 3 LLMs, coherence only)
+- Execution time: ~2-3 minutes (depends on API response time)
 
 ## Experimental Results
 
