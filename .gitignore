@@ -29,7 +29,7 @@ cache/
 
 # Heavy data files
 *.pkl
-*.png
+*.json
 
 # Virtual environment
 venv/
