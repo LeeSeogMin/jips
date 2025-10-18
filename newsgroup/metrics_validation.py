@@ -69,9 +69,9 @@ def collect_semantic_scores(topics: List[List[str]], tokenized_texts: List[List[
     evaluator.use_dynamic_embeddings = True
     res = evaluator.evaluate(topics, docs, assignments)
     det = res.get('detailed_scores', {})
-    coh = det.get('coherence', {}).get('topic_coherence', [])
+    coh = det.get('Coherence', {}).get('topic_coherence', [])
     # Approximate per-topic distinctiveness by pairwise averaging: use matrix if available
-    dis_info = det.get('distinctiveness', {})
+    dis_info = det.get('Distinctiveness', {})
     per_topic_dis: List[float] = []
     if 'topic_pairs' in dis_info:
         n = len(topics)
@@ -86,7 +86,7 @@ def collect_semantic_scores(topics: List[List[str]], tokenized_texts: List[List[
                     vals.append(pair[key])
             per_topic_dis.append(float(np.mean(vals)) if vals else 0.0)
     else:
-        per_topic_dis = [res.get('distinctiveness', 0.0)] * len(topics)
+        per_topic_dis = [res.get('Distinctiveness', 0.0)] * len(topics)
     # Diversity per-topic proxy matching stat approach
     per_topic_div = []
     for t in topics:
