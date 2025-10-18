@@ -104,7 +104,8 @@ def compare_temperature_results(experimental: Dict, expected: Dict) -> str:
 
         for metric in metrics:
             exp_mean = exp_summary[metric]['mean']
-            exp_cv = exp_summary[metric]['cv']
+            # Use cross_temp_cv (variation across temperatures) for reviewer request
+            exp_cv = exp_summary[metric].get('cross_temp_cv', exp_summary[metric].get('within_cv', 0.0))
             expected_mean = exp_expected[metric]['mean']
             expected_cv = exp_expected[metric]['cv']
 
@@ -214,7 +215,9 @@ def generate_comparison_report(
 
         for metric in ['coherence', 'distinctiveness', 'diversity', 'semantic_integration']:
             delta_mean = abs(exp_summary[metric]['mean'] - exp_expected[metric]['mean'])
-            delta_cv = abs(exp_summary[metric]['cv'] - exp_expected[metric]['cv'])
+            # Use cross_temp_cv for cross-temperature variation
+            exp_cv = exp_summary[metric].get('cross_temp_cv', exp_summary[metric].get('within_cv', 0.0))
+            delta_cv = abs(exp_cv - exp_expected[metric]['cv'])
 
             if delta_mean > 0.05 or delta_cv > 1.0:
                 all_passed = False

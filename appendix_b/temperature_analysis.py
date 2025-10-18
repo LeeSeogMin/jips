@@ -102,49 +102,42 @@ class TemperatureValidator:
         print(f"   Total API calls: {total_calls}")
         print(f"   Estimated time: ~{total_calls * 2 / 60:.1f} minutes\n")
 
-        # Process each temperature
-        for temp in self.temperatures:
-            # Use cached results for T=0.0 if available
-            if temp == 0.0 and self.cached_results:
-                results[temp] = self._extract_cached_results()
-                continue
+        # REVIEWER REQUEST APPROACH:
+        # Evaluate ONCE per temperature, then measure CV ACROSS temperatures
+        # Goal: "How much do scores vary when temperature changes?"
 
+        for temp in self.temperatures:
             print(f"\n{'='*60}")
             print(f"Testing Temperature: {temp}")
             print(f"{'='*60}")
 
-            temp_results = {metric: [] for metric in metrics}
+            # Initialize evaluator with current temperature
+            evaluator = TopicEvaluatorLLM(temperature=temp)
 
-            # Run multiple independent evaluations
-            for run_idx in range(self.num_runs):
-                print(f"\n  Run {run_idx + 1}/{self.num_runs}")
+            # 1. Coherence: Per-topic evaluation
+            print(f"    Evaluating coherence per-topic...")
+            coherence_scores = []
+            for topic in tqdm(self.topics, desc=f"    T={temp}, Coherence"):
+                topic_words = topic[:10]
+                coherence, _ = evaluator.evaluate_coherence(topic_words)
+                coherence_scores.append(coherence)
 
-                # Initialize evaluator with current temperature
-                evaluator = TopicEvaluatorLLM(temperature=temp)
+            # 2. Multi-topic metrics: Aggregated evaluation
+            all_topics = [topic[:10] for topic in self.topics]
 
-                run_scores = {metric: [] for metric in metrics}
+            print(f"    Evaluating multi-topic metrics (aggregated)...")
+            distinctiveness, _ = evaluator.evaluate_distinctiveness_aggregated(all_topics)
+            diversity, _ = evaluator.evaluate_diversity(all_topics)
+            integration, _ = evaluator.evaluate_semantic_integration(all_topics)
 
-                # Prepare all topics for this run (use aggregated evaluation as per manuscript)
-                all_topics = [topic[:10] for topic in self.topics]
-
-                # Evaluate all 4 metrics using aggregated methods (manuscript approach)
-                print(f"    Evaluating {len(all_topics)} topics...")
-                coherence_score, _ = evaluator.evaluate_coherence_aggregated(all_topics)
-                distinctiveness_score, _ = evaluator.evaluate_distinctiveness_aggregated(all_topics)
-                diversity_score, _ = evaluator.evaluate_diversity(all_topics)
-                integration_score, _ = evaluator.evaluate_semantic_integration(all_topics)
-
-                # Store scores for this run (one score per metric for all topics)
-                run_scores['coherence'].append(coherence_score)
-                run_scores['distinctiveness'].append(distinctiveness_score)
-                run_scores['diversity'].append(diversity_score)
-                run_scores['semantic_integration'].append(integration_score)
-
-                # Store this run's results
-                for metric in metrics:
-                    temp_results[metric].append(run_scores[metric])
-
-            results[temp] = temp_results
+            # Store results for this temperature
+            # Structure: results[temp][metric] = score(s)
+            results[temp] = {
+                'coherence': coherence_scores,  # List of per-topic scores
+                'distinctiveness': distinctiveness,  # Single aggregated score
+                'diversity': diversity,  # Single aggregated score
+                'semantic_integration': integration  # Single aggregated score
+            }
 
         # Compute summary statistics
         summary = self._compute_summary_statistics(results, metrics)
@@ -165,13 +158,17 @@ class TemperatureValidator:
 
     def _compute_summary_statistics(self, results: Dict, metrics: List[str]) -> Dict:
         """
-        Compute mean, std, CV for each temperature/metric combination
+        Compute statistics for REVIEWER REQUEST approach:
+
+        Two types of CV:
+        1. Within-temperature CV (per-topic variation at each temperature)
+        2. Cross-temperature CV (how much scores change when temperature varies)
 
         Returns:
             {
                 0.0: {
-                    'coherence': {'mean': 0.920, 'std': 0.018, 'cv': 2.8},
-                    'distinctiveness': {'mean': 0.720, 'std': 0.025, 'cv': 3.5},
+                    'coherence': {'mean': 0.920, 'within_cv': 2.8, 'cross_cv': 0.5},
+                    'distinctiveness': {'mean': 0.720, 'cross_cv': 1.7},
                     ...
                 },
                 ...
@@ -179,24 +176,54 @@ class TemperatureValidator:
         """
         summary = {}
 
+        # 1. Within-temperature statistics (per-topic variation)
         for temp, temp_results in results.items():
             summary[temp] = {}
 
             for metric in metrics:
-                # Get all scores across runs for this metric
-                # Shape: (num_runs,) - one aggregated score per run
-                all_runs = np.array(temp_results[metric])
+                if metric == 'coherence':
+                    # Coherence: Per-topic scores
+                    scores = temp_results[metric]  # List of per-topic scores
 
-                # Compute statistics across runs
-                mean_score = np.mean(all_runs)
-                std_score = np.std(all_runs)
-                cv = (std_score / mean_score) * 100 if mean_score != 0 else 0
+                    mean_score = np.mean(scores)
+                    std_score = np.std(scores)
+                    within_cv = (std_score / mean_score) * 100 if mean_score != 0 else 0
 
-                summary[temp][metric] = {
-                    'mean': round(mean_score, 3),
-                    'std': round(std_score, 3),
-                    'cv': round(cv, 1)
-                }
+                    summary[temp][metric] = {
+                        'mean': round(mean_score, 3),
+                        'std': round(std_score, 3),
+                        'within_cv': round(within_cv, 1)  # Variation across topics at this T
+                    }
+
+                else:
+                    # Multi-topic metrics: Single aggregated score
+                    score = temp_results[metric]
+
+                    summary[temp][metric] = {
+                        'mean': round(score, 3),
+                        'std': 0.0,  # No variation (single evaluation)
+                        'within_cv': 0.0
+                    }
+
+        # 2. Cross-temperature statistics (variation across temperatures)
+        # This is what reviewer wants: "How much do scores vary with temperature?"
+        for metric in metrics:
+            if metric == 'coherence':
+                # For coherence: Average per-topic score at each temperature
+                mean_scores_across_temps = [summary[temp][metric]['mean'] for temp in self.temperatures]
+
+            else:
+                # For multi-topic: Score at each temperature
+                mean_scores_across_temps = [summary[temp][metric]['mean'] for temp in self.temperatures]
+
+            # Compute CV across temperatures
+            mean_of_means = np.mean(mean_scores_across_temps)
+            std_of_means = np.std(mean_scores_across_temps)
+            cross_temp_cv = (std_of_means / mean_of_means) * 100 if mean_of_means != 0 else 0
+
+            # Add cross-temperature CV to each temperature's summary
+            for temp in self.temperatures:
+                summary[temp][metric]['cross_temp_cv'] = round(cross_temp_cv, 1)
 
         return summary
 
