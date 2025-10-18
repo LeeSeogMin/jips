@@ -4,9 +4,11 @@
 # Data folder
 others/
 temp/
-data/
 llm_analyzers/
 pandoc/
+files/
+.claude/
+node_modules/
 
 # Documentation and text files (except README.md and requirements.txt)
 *.md
