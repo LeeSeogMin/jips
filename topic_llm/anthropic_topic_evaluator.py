@@ -7,7 +7,7 @@ import numpy as np
 from typing import List, Dict, Union, Tuple
 import logging
 from tabulate import tabulate
-from base_topic_evaluator import BaseLLMEvaluator
+from .base_topic_evaluator import BaseLLMEvaluator
 
 # Logging configuration
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 class TopicEvaluatorLLM(BaseLLMEvaluator):
-    def __init__(self, model="claude-sonnet-4-5-20250929", temperature: float = 0.3, prompt_variant: str = 'standard'):
+    def __init__(self, model="claude-sonnet-4-5-20250929", temperature: float = 0.0, prompt_variant: str = 'standard'):
         super().__init__(temperature, prompt_variant)
         self.client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         self.model = model

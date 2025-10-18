@@ -18,8 +18,8 @@ from newsgroup.report_utils import (
     compute_nmi_ari,
     bootstrap_cv,
 )
-from StatEvaluator import TopicModelStatEvaluator
-from NeuralEvaluator import TopicModelNeuralEvaluator
+from evaluation.StatEvaluator import TopicModelStatEvaluator
+from evaluation.NeuralEvaluator import TopicModelNeuralEvaluator
 
 
 def collect_stat_scores(topics: List[List[str]], tokenized_texts: List[List[str]]) -> Dict[str, List[float]]:

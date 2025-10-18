@@ -31,6 +31,10 @@ cache/
 *.pkl
 *.json
 
+# CSV files (except in data folder)
+*.csv
+!data/*.csv
+
 # Virtual environment
 venv/
 .venv/

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class BaseLLMEvaluator(ABC):
     """Base class for LLM-based topic model evaluation"""
 
-    def __init__(self, temperature: float = 0.3, prompt_variant: str = 'standard'):
+    def __init__(self, temperature: float = 0.0, prompt_variant: str = 'standard'):
         self.temperature = temperature
         self.prompt_variant = prompt_variant
         
