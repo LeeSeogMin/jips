@@ -209,7 +209,7 @@ If you use this work in your research, please cite:
   author={Lee, Seog-Min},
   journal={Journal of Information Processing Systems},
   year={2025},
-  url={https://github.com/LeeSeogMin/jips}
+  url={https://github.com/LeeSeogMin/jips.git}
 }
 ```
 
@@ -281,5 +281,5 @@ Contributions are welcome! Please:
 
 ---
 
-**Repository**: https://github.com/LeeSeogMin/jips
+**Repository**: https://github.com/LeeSeogMin/jips.git
 **Last Updated**: October 18, 2025
