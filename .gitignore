@@ -27,6 +27,9 @@ __pycache__/
 .claude/
 cache/
 
+# Heavy data files
+*.pkl
+
 # Virtual environment
 venv/
 .venv/
