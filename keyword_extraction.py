@@ -12,7 +12,8 @@ import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.manifold import TSNE
+from sklearn.manifold import TSNE, trustworthiness
+from umap import UMAP
 import matplotlib.pyplot as plt
 from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer
@@ -87,27 +88,109 @@ class TopicAnalyzer:
         
         return keywords
     
-    def visualize_topics_tsne(self, embeddings: np.ndarray, labels: np.ndarray, title: str) -> Tuple[plt.Figure, np.ndarray]:
+    def visualize_topics_tsne(self, embeddings: np.ndarray, labels: np.ndarray, title: str,
+                              perplexity: int = 30, learning_rate: int = 200,
+                              max_iter: int = 1000, random_state: int = 42) -> Tuple[plt.Figure, np.ndarray]:
         """
         Create t-SNE visualization of topic embeddings
         """
-        tsne = TSNE(n_components=2, random_state=42)
+        tsne = TSNE(n_components=2, perplexity=perplexity, learning_rate=learning_rate,
+                   max_iter=max_iter, random_state=random_state)
         tsne_results = tsne.fit_transform(embeddings)
-        
+
         fig, ax = plt.subplots(figsize=(12, 8))
         unique_labels = np.unique(labels)
         colors = plt.cm.rainbow(np.linspace(0, 1, len(unique_labels)))
-        
+
         for i, label in enumerate(unique_labels):
             mask = labels == label
             ax.scatter(tsne_results[mask, 0], tsne_results[mask, 1],
                       c=[colors[i]], label=label, alpha=0.7)
-        
+
         ax.set_title(title)
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
-        
+
         return fig, tsne_results
+
+    def visualize_topics_umap(self, embeddings: np.ndarray, labels: np.ndarray, title: str,
+                              n_neighbors: int = 15, min_dist: float = 0.1,
+                              random_state: int = 42) -> Tuple[plt.Figure, np.ndarray]:
+        """
+        Create UMAP visualization of topic embeddings
+        """
+        umap_model = UMAP(n_components=2, n_neighbors=n_neighbors, min_dist=min_dist,
+                         random_state=random_state)
+        umap_results = umap_model.fit_transform(embeddings)
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+        unique_labels = np.unique(labels)
+        colors = plt.cm.rainbow(np.linspace(0, 1, len(unique_labels)))
+
+        for i, label in enumerate(unique_labels):
+            mask = labels == label
+            ax.scatter(umap_results[mask, 0], umap_results[mask, 1],
+                      c=[colors[i]], label=label, alpha=0.7)
+
+        ax.set_title(title)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+
+        return fig, umap_results
+
+    def compare_dimensionality_reduction(self, embeddings: np.ndarray, labels: np.ndarray) -> Dict[str, Any]:
+        """
+        Compare t-SNE and UMAP using quantitative metrics
+        """
+        results = {}
+
+        # t-SNE with default parameters
+        tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, max_iter=1000, random_state=42)
+        tsne_results = tsne.fit_transform(embeddings)
+        tsne_trust = trustworthiness(embeddings, tsne_results, n_neighbors=12)
+
+        # UMAP
+        umap_model = UMAP(n_components=2, n_neighbors=15, min_dist=0.1, random_state=42)
+        umap_results = umap_model.fit_transform(embeddings)
+        umap_trust = trustworthiness(embeddings, umap_results, n_neighbors=12)
+
+        results['tsne'] = {
+            'trustworthiness': tsne_trust,
+            'coordinates': tsne_results
+        }
+        results['umap'] = {
+            'trustworthiness': umap_trust,
+            'coordinates': umap_results
+        }
+
+        return results
+
+    def test_visualization_stability(self, embeddings: np.ndarray, labels: np.ndarray,
+                                     seeds: List[int] = [42, 123, 456]) -> Dict[str, Any]:
+        """
+        Test visualization stability across different random seeds
+        """
+        results = {}
+
+        for seed in seeds:
+            tsne = TSNE(n_components=2, perplexity=30, learning_rate=200,
+                       max_iter=1000, random_state=seed)
+            tsne_results = tsne.fit_transform(embeddings)
+            trust = trustworthiness(embeddings, tsne_results, n_neighbors=12)
+            results[f'seed_{seed}'] = {
+                'coordinates': tsne_results,
+                'trustworthiness': trust
+            }
+
+        # Calculate stability metrics
+        trust_values = [results[f'seed_{seed}']['trustworthiness'] for seed in seeds]
+        results['stability_metrics'] = {
+            'mean_trustworthiness': np.mean(trust_values),
+            'std_trustworthiness': np.std(trust_values),
+            'seeds_tested': seeds
+        }
+
+        return results
     
     def analyze_dataset_statistics(self, df: pd.DataFrame, embeddings: np.ndarray) -> Dict[str, Any]:
         """
@@ -191,42 +274,74 @@ def main():
     
     for name, df in datasets.items():
         print(f"\nProcessing {name} dataset...")
-        
+
         # Generate embeddings
         embeddings = analyzer.load_cached_embeddings(
             f'data/embeddings_{name}.pkl',
             df['text'].tolist()
         )
-        
+
         # Extract keywords
         keywords = analyzer.extract_topic_keywords(df, embeddings)
-        
-        # Create visualization
-        fig, _ = analyzer.visualize_topics_tsne(
+
+        # Create t-SNE visualization
+        fig_tsne, _ = analyzer.visualize_topics_tsne(
             embeddings,
             df['label'].values,
             f't-SNE Visualization of {name.title()} Topics'
         )
-        fig.savefig(f'data/tsne_{name}.png')
-        plt.close(fig)
-        
+        fig_tsne.savefig(f'data/tsne_{name}.png', dpi=300, bbox_inches='tight')
+        plt.close(fig_tsne)
+
+        # Create UMAP visualization
+        print(f"  Generating UMAP visualization for {name}...")
+        fig_umap, _ = analyzer.visualize_topics_umap(
+            embeddings,
+            df['label'].values,
+            f'UMAP Visualization of {name.title()} Topics'
+        )
+        fig_umap.savefig(f'data/umap_{name}.png', dpi=300, bbox_inches='tight')
+        plt.close(fig_umap)
+
+        # Compare dimensionality reduction methods
+        print(f"  Comparing t-SNE and UMAP for {name}...")
+        comparison = analyzer.compare_dimensionality_reduction(embeddings, df['label'].values)
+
+        # Test visualization stability
+        print(f"  Testing visualization stability for {name}...")
+        stability = analyzer.test_visualization_stability(embeddings, df['label'].values)
+
         # Analyze statistics
         stats = analyzer.analyze_dataset_statistics(df, embeddings)
-        
+
         # Process with BERT
         bert_outputs = analyzer.process_with_bert(df['text'].tolist())
-        
+
         # Save results
         with open(f'data/keywords_{name}.pkl', 'wb') as f:
             pickle.dump(keywords, f)
-        
+
         with open(f'data/stats_{name}.pkl', 'wb') as f:
             pickle.dump(stats, f)
-        
+
         with open(f'data/bert_{name}.pkl', 'wb') as f:
             pickle.dump(bert_outputs, f)
-        
-        print(f"Completed processing {name} dataset")
+
+        with open(f'data/comparison_{name}.pkl', 'wb') as f:
+            pickle.dump(comparison, f)
+
+        with open(f'data/stability_{name}.pkl', 'wb') as f:
+            pickle.dump(stability, f)
+
+        # Print comparison results
+        print(f"\n  Dimensionality Reduction Comparison for {name}:")
+        print(f"    t-SNE Trustworthiness: {comparison['tsne']['trustworthiness']:.4f}")
+        print(f"    UMAP Trustworthiness: {comparison['umap']['trustworthiness']:.4f}")
+        print(f"\n  Stability Metrics for {name}:")
+        print(f"    Mean Trustworthiness: {stability['stability_metrics']['mean_trustworthiness']:.4f}")
+        print(f"    Std Trustworthiness: {stability['stability_metrics']['std_trustworthiness']:.4f}")
+
+        print(f"\nCompleted processing {name} dataset")
 
 if __name__ == '__main__':
     main()
