@@ -335,3 +335,41 @@ Contributions are welcome! Please:
 
 **Repository**: https://github.com/LeeSeogMin/jips.git
 **Last Updated**: October 18, 2025
+
+### 6. Validate LLM Evaluation Robustness (Appendix B)
+
+This module validates the robustness of LLM-based topic evaluation across different model parameters.
+
+```bash
+# Quick sample validation (5 topics, ~5 minutes)
+cd jips
+source venv/Scripts/activate  # Windows
+python appendix_b/validate_appendix_b.py --mode sample
+
+# Full validation (15 topics, ~20 minutes)  
+python appendix_b/validate_appendix_b.py --mode full
+```
+
+**Purpose**: Address reviewer concerns about LLM evaluation sensitivity by measuring coefficient of variation (CV) across:
+- Temperature settings (T=0.0 vs T=0.7)
+- Prompt formulations (3 variants)
+
+**Expected Results** (CV < 5% indicates excellent robustness):
+```
+Temperature Sensitivity:
+  Cross-Temperature CV: 0.0% (all metrics)
+  → Perfect robustness across T=0.0 and T=0.7
+
+Prompt Variation:
+  Mean CV: 0.0% (all prompt variants)
+  → Perfect robustness across formulations
+```
+
+**Outputs**:
+- `appendix_b/output/validation_summary_*.json` - Numerical results
+- `appendix_b/output/validation_report_*.md` - Human-readable report
+
+**Documentation**:
+- See [appendix_b/README.md](appendix_b/README.md) for complete documentation
+- See [appendix_b/USAGE_GUIDE.md](appendix_b/USAGE_GUIDE.md) for quick start
+

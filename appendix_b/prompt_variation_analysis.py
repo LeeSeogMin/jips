@@ -154,23 +154,27 @@ Coherence | Distinctiveness | Diversity | Integration"""
             print(f"{'='*60}")
 
             # Initialize evaluator with custom prompt
+            # Use T=0.7 to capture variation across prompts (reviewer request)
             evaluator = TopicEvaluatorLLM(
-                temperature=0.0,  # Fixed temperature for prompt comparison
+                temperature=0.7,  # Higher temperature to demonstrate prompt robustness
                 prompt_variant='standard'  # Will override system_prompt manually
             )
 
             # Override system_prompt
             evaluator.system_prompt = variant_info['system_prompt']
 
-            # Prepare all topics for aggregated evaluation (manuscript approach)
-            all_topics = [topic[:10] for topic in self.topics]
+            # Evaluate each topic individually to capture per-topic variation
+            print(f"    Evaluating {len(self.topics)} topics individually...")
 
-            print(f"    Evaluating {len(all_topics)} topics...")
-            # Evaluate coherence using aggregated method (Table B2 shows aggregated coherence scores)
-            coherence_score, _ = evaluator.evaluate_coherence_aggregated(all_topics)
+            per_topic_scores = []
+            for topic in tqdm(self.topics, desc=f"  Variant {variant_id}"):
+                topic_words = topic[:10]
+                # Evaluate coherence for this single topic
+                coherence_score, _ = evaluator.evaluate_coherence(topic_words)
+                per_topic_scores.append(coherence_score)
 
-            # Store single aggregated score for this variant
-            results[variant_id] = coherence_score
+            # Store per-topic scores for this variant
+            results[variant_id] = per_topic_scores
 
         # Compute summary statistics
         summary = self._compute_summary_statistics(results)
@@ -184,38 +188,52 @@ Coherence | Distinctiveness | Diversity | Integration"""
 
     def _compute_summary_statistics(self, results: Dict) -> Dict:
         """
-        Compute CV across prompt variants (aggregated scores)
+        Compute CV across prompt variants using per-topic scores
+
+        Now computing CV from variation across prompt variants for each topic,
+        then averaging across topics.
 
         Returns:
             {
-                'variant_scores': [variant1_score, variant2_score, ...],
+                'per_topic_cv': [topic1_cv, topic2_cv, ...],
                 'mean_cv': 1.9,
                 'std_cv': 0.5,
                 'classification': 'VERY LOW'
             }
         """
-        # Get scores from all variants (one aggregated score per variant)
-        variant_scores = [results[v] for v in self.variants]
+        # Each results[variant_id] is now a list of per-topic scores
+        num_topics = len(results[self.variants[0]])
+        per_topic_cv = []
 
-        mean_score = np.mean(variant_scores)
-        std_score = np.std(variant_scores)
-        cv = (std_score / mean_score) * 100 if mean_score != 0 else 0
+        # Compute CV for each topic across variants
+        for topic_idx in range(num_topics):
+            # Get scores from all variants for this topic
+            topic_scores = [results[v][topic_idx] for v in self.variants]
+
+            mean_score = np.mean(topic_scores)
+            std_score = np.std(topic_scores)
+            cv = (std_score / mean_score) * 100 if mean_score != 0 else 0
+
+            per_topic_cv.append(round(cv, 1))
+
+        # Overall statistics
+        mean_cv = round(np.mean(per_topic_cv), 1)
+        std_cv = round(np.std(per_topic_cv), 1)
 
         # Classify sensitivity
-        if cv < 3.0:
+        if mean_cv < 3.0:
             classification = "VERY LOW"
-        elif cv < 5.0:
+        elif mean_cv < 5.0:
             classification = "LOW"
-        elif cv < 10.0:
+        elif mean_cv < 10.0:
             classification = "MODERATE"
         else:
             classification = "HIGH"
 
         return {
-            'variant_scores': [round(s, 3) for s in variant_scores],
-            'mean_score': round(mean_score, 3),
-            'std_score': round(std_score, 3),
-            'mean_cv': round(cv, 1),
+            'per_topic_cv': per_topic_cv,
+            'mean_cv': mean_cv,
+            'std_cv': std_cv,
             'classification': classification
         }
 
@@ -223,34 +241,65 @@ Coherence | Distinctiveness | Diversity | Integration"""
         """
         Generate markdown Table B2 format from validation results
 
-        Expected format (aggregated scores):
-        | Variant | Score | Classification |
-        |---------|-------|----------------|
-        | P1 (Baseline) | 0.920 | - |
-        | P2 (Simplified) | 0.915 | - |
-        | P3 (Detailed) | 0.925 | - |
-        | P4 (Contextual) | 0.910 | - |
-        | P5 (Concise) | 0.918 | - |
-        | **Mean** | **0.918** | - |
-        | **Std Dev** | **0.006** | - |
-        | **CV** | **0.6%** | **VERY LOW** |
+        Expected format (per-topic scores):
+        | Topic | P1 | P2 | P3 | P4 | P5 | Mean | Std Dev | CV (%) |
+        |-------|----|----|----|----|----|----- |---------|--------|
+        | T1 | 0.920 | 0.915 | 0.925 | 0.910 | 0.918 | 0.918 | 0.006 | 0.6% |
+        ...
+        | **Mean** |  |  |  |  |  |  |  | **1.9%** |
         """
         lines = []
 
         # Header
-        lines.append("| Variant | Score | Classification |")
-        lines.append("|---------|-------|----------------|")
+        variant_names = [f"P{v}" for v in self.variants]
+        header = "| Topic | " + " | ".join(variant_names) + " | Mean | Std Dev | CV (%) |"
+        separator = "|-------|" + "|".join(["----"] * len(self.variants)) + "|------|---------|--------|"
 
-        # Data rows - one row per variant
-        for variant_id in self.variants:
-            variant_name = self.PROMPT_VARIANTS[variant_id]['name']
-            score = results['results'][variant_id]
-            lines.append(f"| P{variant_id} ({variant_name}) | {score:.3f} | - |")
+        lines.append(header)
+        lines.append(separator)
 
-        # Summary rows
-        lines.append(f"| **Mean** | **{summary['mean_score']:.3f}** | - |")
-        lines.append(f"| **Std Dev** | **{summary['std_score']:.3f}** | - |")
-        lines.append(f"| **CV** | **{summary['mean_cv']:.1f}%** | **{summary['classification']}** |")
+        # Data rows - one row per topic
+        num_topics = results['topics']
+        for topic_idx in range(num_topics):
+            row = [f"T{topic_idx + 1}"]
+
+            # Scores for each variant
+            topic_scores = []
+            for variant_id in self.variants:
+                score = results['results'][variant_id][topic_idx]
+                row.append(f"{score:.3f}")
+                topic_scores.append(score)
+
+            # Statistics for this topic
+            mean_score = np.mean(topic_scores)
+            std_score = np.std(topic_scores)
+            cv = summary['per_topic_cv'][topic_idx]
+
+            row.append(f"{mean_score:.3f}")
+            row.append(f"{std_score:.3f}")
+            row.append(f"{cv:.1f}%")
+
+            lines.append("| " + " | ".join(row) + " |")
+
+        # Summary row
+        summary_row = [
+            "**Mean**",
+            *["" for _ in self.variants],
+            "",
+            "",
+            f"**{summary['mean_cv']:.1f}%**"
+        ]
+        lines.append("| " + " | ".join(summary_row) + " |")
+
+        # Classification row
+        classification_row = [
+            "**Classification**",
+            *["" for _ in self.variants],
+            "",
+            "",
+            f"**{summary['classification']}**"
+        ]
+        lines.append("| " + " | ".join(classification_row) + " |")
 
         return '\n'.join(lines)
 
