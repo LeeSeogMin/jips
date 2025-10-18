@@ -1,10 +1,10 @@
-# LLM-based Topic Model Evaluation System
+# Topic LLM Evaluation Module
 
-4-metric LLM evaluation framework for topic models with inter-model agreement analysis.
+This module provides Large Language Model (LLM) based validation for topic model evaluation, implementing a three-model ensemble approach to reduce bias and improve reliability.
 
 ## Overview
 
-This system provides comprehensive topic model evaluation using two leading LLMs (Anthropic Claude and OpenAI GPT-4) across 4 metrics:
+The Topic LLM module implements a robust validation framework using multiple state-of-the-art language models to assess topic quality. This approach serves as a scalable proxy for human judgment in topic model evaluation, supporting comprehensive topic model evaluation using multiple leading LLMs across 4 metrics:
 
 1. **Coherence** - Semantic coherence of keywords within topics
 2. **Distinctiveness** - How well-differentiated topics are from each other
@@ -29,6 +29,7 @@ topic_llm/
 **Purpose**: Abstract base class defining the 4-metric evaluation interface.
 
 **Key Methods**:
+
 - `evaluate_coherence()` - Per-topic coherence evaluation
 - `evaluate_distinctiveness_aggregated()` - Dataset-level distinctiveness
 - `evaluate_diversity()` - Dataset-level diversity
@@ -36,6 +37,7 @@ topic_llm/
 - `evaluate_topic_set()` - Comprehensive 4-metric evaluation
 
 **Overall Score Calculation**:
+
 ```python
 overall_score = (
     coherence * 0.3 +
@@ -50,12 +52,14 @@ overall_score = (
 **Purpose**: LLM-specific implementations of the base evaluator.
 
 **Features**:
+
 - Temperature=0 for deterministic sampling
 - max_tokens=150 for concise responses
 - Robust response parsing (XML, markdown, plain text)
 - Automatic result saving and detailed logging
 
 **API Configuration**:
+
 - Anthropic: claude-sonnet-4-5-20250929
 - OpenAI: gpt-4.1
 
@@ -64,6 +68,7 @@ overall_score = (
 **Purpose**: Main script to execute LLM evaluations on 3 synthetic datasets.
 
 **Usage**:
+
 ```bash
 # Run both evaluators (default)
 python run_individual_llm.py
@@ -77,11 +82,13 @@ python run_individual_llm.py --both
 ```
 
 **Input**:
+
 - `../data/topics_distinct.pkl`
 - `../data/topics_similar.pkl`
 - `../data/topics_more_similar.pkl`
 
 **Output**:
+
 - `../data/anthropic_evaluation_results.pkl`
 - `../data/openai_evaluation_results.pkl`
 - `../data/detailed_results_*.txt`
@@ -91,6 +98,7 @@ python run_individual_llm.py --both
 **Purpose**: Load evaluation results and perform Cohen's kappa inter-model agreement analysis.
 
 **Usage**:
+
 ```bash
 python comprehensive_analysis.py
 ```
@@ -98,6 +106,7 @@ python comprehensive_analysis.py
 **Requirements**: Must run `run_individual_llm.py` first to generate result files.
 
 **Analysis Features**:
+
 - Per-dataset metric comparison (Anthropic vs OpenAI)
 - Cohen's kappa analysis for categorical agreement
 - Pearson correlation for continuous scores
@@ -106,6 +115,7 @@ python comprehensive_analysis.py
 - Mitigation strategies and recommendations
 
 **Output**:
+
 - Console report with comprehensive statistics
 - Per-metric agreement analysis
 - Overall assessment and recommendations
@@ -126,6 +136,7 @@ python run_individual_llm.py --openai
 ```
 
 **Expected Output**:
+
 ```
 ======================================================================
 LOADING TOPIC DATA
@@ -188,6 +199,7 @@ python comprehensive_analysis.py
 ```
 
 **Expected Output**:
+
 ```
 ================================================================================
 COMPREHENSIVE LLM EVALUATION ANALYSIS - ALL 4 METRICS
@@ -275,24 +287,28 @@ Recommended Practices:
 ## Key Features
 
 ### 1. 4-Metric Evaluation Framework
+
 - **Coherence**: Per-topic evaluation with batch optimization (78% API call reduction)
 - **Distinctiveness**: Aggregated dataset-level evaluation
 - **Diversity**: Semantic diversity and distribution balance
 - **Semantic Integration**: Holistic topic model quality
 
 ### 2. Multi-Model Validation
+
 - Anthropic Claude (claude-sonnet-4-5-20250929)
 - OpenAI GPT-4 (gpt-4.1)
 - Temperature=0 for deterministic sampling
 - Automated inter-model agreement analysis
 
 ### 3. Robust Analysis
+
 - Cohen's kappa for categorical agreement
 - Pearson correlation for continuous scores
 - Mean Absolute Difference (MAD)
 - Multi-dataset aggregate statistics
 
 ### 4. Comprehensive Reporting
+
 - Per-dataset metric comparison
 - Inter-rater agreement analysis
 - Overall assessment and recommendations
@@ -323,17 +339,21 @@ If topic data files are missing:
 ## Performance Optimization
 
 ### Batch Coherence Evaluation
+
 - **Before**: 54 API calls (15 + 15 + 16 topics × 2 models)
 - **After**: 12 API calls (3 datasets × 2 models × 2 metrics)
 - **Reduction**: 78%
 
 ### Aggregated Metrics
+
 - Distinctiveness, Diversity, Semantic Integration: 1 API call per dataset
 - Coherence: N API calls per dataset (N = number of topics)
 - Total: (N+3) calls per dataset per model
 
 ### Cost Estimates
+
 For 3 datasets (distinct=15, similar=15, more_similar=16):
+
 - **Coherence**: 46 topics × 2 models = 92 API calls
 - **Other Metrics**: 3 metrics × 3 datasets × 2 models = 18 API calls
 - **Total**: 110 API calls
@@ -362,18 +382,21 @@ OPENAI_API_KEY=your_openai_key
 ## Troubleshooting
 
 ### Import Errors
+
 ```bash
 # Install dependencies
 pip install anthropic openai python-dotenv numpy pandas scikit-learn tabulate
 ```
 
 ### API Key Errors
+
 ```bash
 # Check .env file exists and has correct keys
 cat .env
 ```
 
 ### Module Not Found
+
 ```bash
 # Ensure you're running from topic_llm directory
 cd C:/jips/topic_llm
