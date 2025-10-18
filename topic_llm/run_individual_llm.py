@@ -28,7 +28,16 @@ load_dotenv()
 
 
 def load_topic_data():
-    """Load topic datasets from pickle files"""
+    """Load topic datasets from pickle files
+
+    NOTE: Current data has 46 topics total (15+15+16):
+    - distinct: 15 topics
+    - similar: 15 topics
+    - more_similar: 16 topics (should be 15)
+
+    TODO: Regenerate more_similar dataset with 15 topics for consistency.
+    Original design was 15 topics per dataset (45 total).
+    """
     base_dir = Path(__file__).parent.parent
     data_dir = base_dir / 'data'
 

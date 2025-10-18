@@ -13,8 +13,8 @@ from sklearn.datasets import fetch_20newsgroups
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from newsgroup.cte_model import CTEModel
-from StatEvaluator import TopicModelStatEvaluator
-from NeuralEvaluator import TopicModelNeuralEvaluator
+from evaluation.StatEvaluator import TopicModelStatEvaluator
+from evaluation.NeuralEvaluator import TopicModelNeuralEvaluator
 from sentence_transformers import SentenceTransformer
 
 
@@ -253,9 +253,10 @@ def evaluate_semantic(topics, tokenized_texts, cte_model):
     )
 
     print(f"\nSemantic Results:")
-    coherence_val = results.get('coherence', 0.0)
-    distinctiveness_val = results.get('distinctiveness', 0.0)
-    diversity_val = results.get('diversity', 0.0)
+    # NeuralEvaluator returns keys with capital first letter
+    coherence_val = results.get('Coherence', results.get('coherence', 0.0))
+    distinctiveness_val = results.get('Distinctiveness', results.get('distinctiveness', 0.0))
+    diversity_val = results.get('Diversity', results.get('diversity', 0.0))
 
     print(f"  Coherence: {coherence_val:.3f}")
     print(f"  Distinctiveness: {distinctiveness_val:.3f}")
@@ -283,8 +284,7 @@ def evaluate_llm_multi(topics):
     llm_configs = [
         ('OpenAI', 'topic_llm.openai_topic_evaluator'),
         ('Anthropic', 'topic_llm.anthropic_topic_evaluator'),
-        ('Grok', 'topic_llm.grok_topic_evaluator'),
-        ('Gemini', 'topic_llm.gemini_topic_evaluator')
+        ('Grok', 'topic_llm.grok_topic_evaluator')
     ]
 
     for llm_name, module_name in llm_configs:
@@ -413,7 +413,7 @@ def main():
     print("="*80)
     print(f"\n{'LLM':<15} {'Coherence':>12} {'Distinct.':>12} {'Diversity':>12} {'Overall':>12}")
     print("-" * 63)
-    for llm_name in ['OpenAI', 'Anthropic', 'Grok', 'Gemini']:
+    for llm_name in ['OpenAI', 'Anthropic', 'Grok']:
         if llm_individual_results.get(llm_name):
             r = llm_individual_results[llm_name]
             overall = compute_overall_score(r['coherence'], r['distinctiveness'], r['diversity'])

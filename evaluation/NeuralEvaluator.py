@@ -81,7 +81,8 @@ class TopicModelNeuralEvaluator:
         if self.use_dynamic_embeddings:
             # Generate embeddings on-the-fly for newsgroup validation
             topic_embeddings = self.model.encode(topic_keywords, convert_to_tensor=True)
-            return [topic_embeddings]
+            # Return list of individual keyword embeddings, not wrapped in list
+            return list(topic_embeddings)
         
         for data_type in ['distinct', 'similar', 'more_similar']:
             if hasattr(self, f'topics_{data_type}'):
@@ -234,10 +235,10 @@ class TopicModelNeuralEvaluator:
         
         topic_embeddings = torch.stack(topic_embeddings)
         metrics = self._calculate_similarity_metrics(topic_embeddings)
-        
+
         # 유사도를 구별성 점수로 변환 (1 - similarity) / 2
         distinctiveness = (1 - metrics['similarities']) / 2
-        
+
         # 상삼각행렬 값들만 추출하여 pair_scores 구성
         mask = metrics['mask'].bool()
         for i in range(n_topics):

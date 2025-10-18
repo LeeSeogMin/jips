@@ -3,7 +3,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from NeuralEvaluator import TopicModelNeuralEvaluator
-from StatEvaluator import TopicModelStatEvaluator
+from evaluation.NeuralEvaluator import TopicModelNeuralEvaluator
+from evaluation.StatEvaluator import TopicModelStatEvaluator
 
 __all__ = ['TopicModelStatEvaluator', 'TopicModelNeuralEvaluator']
