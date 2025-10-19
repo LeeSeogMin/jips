@@ -1,7 +1,7 @@
 # Semantic-based Evaluation Framework for Topic Models
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue.svg)](https://github.com/LeeSeogMin/jips.git)
 
 A comprehensive evaluation framework for neural topic models using semantic metrics validated through deep learning and large language models (LLMs).
 
@@ -9,22 +9,23 @@ A comprehensive evaluation framework for neural topic models using semantic metr
 
 This project introduces semantic-based evaluation metrics tailored for modern topic models that leverage BERT embeddings and neural architectures. Traditional statistical metrics (PMI, NPMI, CV) fail to capture semantic aspects of neural topic models. Our framework addresses this gap through:
 
-- **Semantic Metrics**: 33.2:1 discrimination ratio vs. 11.5:1 for statistical methods
-- **LLM Validation**: Three-model ensemble (Claude-sonnet-4.5 from Anthropic, GPT-4.1 from OpenAI, Grok-4 from xAI) reducing bias from 8.5% to 2.8%
-- **Visualization Robustness**: Systematic validation using t-SNE and UMAP with quantitative trustworthiness metrics (0.9589-0.9728)
+- **Semantic Metrics**: 7.62× improvement in coherence discrimination, 1.57× for distinctiveness
+- **LLM Validation**: Three-model ensemble (Claude-sonnet-4-5, GPT-4.1, Grok-4) with Spearman ρ=0.914
+- **Visualization Robustness**: Systematic validation using t-SNE and UMAP with trustworthiness metrics (0.9589-0.9728)
 - **Controlled Datasets**: Three synthetic datasets with varying topic overlap (0.179, 0.312, 0.358)
+- **Public Dataset Validation**: 20 Newsgroups with 85% improved stability (CV: 7.6% vs 49.9%)
 
 ## Key Features
 
 ### 1. Semantic Evaluation Metrics
-- **Semantic Coherence**: Measures topic interpretability using sentence transformers
-- **Semantic Distinctiveness**: Quantifies topic separation in embedding space
-- Deep learning-based metrics aligned with neural topic models
+- **Semantic Coherence (SC)**: PageRank-weighted similarity with hierarchical structure
+- **Semantic Distinctiveness (SD)**: Topic separation in embedding space
+- **Semantic Diversity (SemDiv)**: Combined semantic and distribution diversity
 
 ### 2. Multi-Method Validation
-- **Statistical Baseline**: Traditional metrics (PMI, NPMI, CV, TF-IDF)
-- **Neural Methods**: BERT-based semantic metrics
-- **LLM Ensemble**: Cross-validation using multiple LLM providers
+- **Statistical Baseline**: NPMI, JSD, Topic Diversity (TD)
+- **Neural Methods**: BERT-based semantic metrics (all-MiniLM-L6-v2)
+- **LLM Ensemble**: Weighted aggregation (0.35×Claude + 0.40×GPT + 0.25×Grok)
 - **Visualization**: t-SNE and UMAP with trustworthiness analysis
 
 ### 3. Comprehensive Evaluation Pipeline
@@ -64,7 +65,7 @@ source venv/bin/activate       # Linux/Mac
 pip install -r requirements.txt
 ```
 
-4. Set up environment variables:
+4. Set up environment variables (for LLM validation):
 ```bash
 cp .env.example .env
 # Edit .env with your API keys:
@@ -77,32 +78,31 @@ cp .env.example .env
 
 ```
 jips/
-├── data/                          # Generated datasets and results
-│   ├── distinct/                  # High topic separation (0.179)
-│   ├── similar/                   # Medium topic separation (0.312)
-│   └── more_similar/              # Low topic separation (0.358)
 ├── evaluation/                    # Evaluation modules
-│   ├── DL_Eval.py                # Deep learning metrics
-│   ├── ST_Eval.py                # Statistical metrics
-│   ├── NeuralEvaluator.py        # Neural evaluation wrapper
-│   └── StatEvaluator.py          # Statistical evaluation wrapper
+│   ├── examples/                  # Toy examples with runnable code
+│   ├── NeuralEvaluator.py        # Semantic metrics implementation
+│   ├── StatEvaluator.py          # Statistical metrics implementation
+│   └── README.md                 # Detailed documentation
 ├── topic_llm/                     # LLM validation
 │   ├── anthropic_topic_evaluator.py
 │   ├── openai_topic_evaluator.py
-│   └── grok_topic_evaluator.py
+│   ├── grok_topic_evaluator.py
+│   └── README.md                 # LLM validation guide
 ├── newsgroup/                     # 20 Newsgroups validation
-│   ├── cte_model.py              # CTE topic model implementation
-│   ├── metrics_validation.py     # Manuscript Section 5.X reproduction
-│   ├── report_utils.py           # Utility functions (NPMI, Spearman, etc.)
-│   └── metrics_validation_output.log  # Validation results
-├── docs/                          # Documentation
-│   └── manuscript_section.md     # Detailed manuscript content
+│   ├── cte_model.py              # CTE topic model
+│   ├── metrics_validation.py     # Public dataset validation
+│   └── README.md                 # Validation documentation
+├── appendix_b/                    # Robustness analysis
+│   ├── validate_appendix_b.py    # Temperature & prompt sensitivity
+│   └── README.md                 # Robustness testing guide
+├── data/                          # Generated datasets and results
+├── docs/                          # Documentation and manuscripts
 ├── keyword_extraction.py          # Topic extraction and visualization
 ├── data_gen.ipynb                # Dataset generation notebook
 └── requirements.txt              # Python dependencies
 ```
 
-## Usage
+## Quick Start
 
 ### 1. Generate Synthetic Datasets
 
@@ -123,7 +123,7 @@ Outputs:
 - Topic keywords (TF-IDF)
 - t-SNE visualizations (PNG)
 - UMAP visualizations (PNG)
-- Trustworthiness metrics (pickle)
+- Trustworthiness metrics
 
 ### 3. Run Evaluation Pipeline
 
@@ -131,14 +131,16 @@ Outputs:
 from evaluation.NeuralEvaluator import NeuralEvaluator
 from evaluation.StatEvaluator import StatEvaluator
 
-# Deep learning metrics
+# Semantic metrics
 neural_eval = NeuralEvaluator()
-dl_results = neural_eval.evaluate(documents, topics)
+semantic_results = neural_eval.evaluate(topics, documents, topic_assignments)
 
 # Statistical metrics
 stat_eval = StatEvaluator()
-stat_results = stat_eval.evaluate(documents, topics)
+statistical_results = stat_eval.evaluate(topics, documents, topic_assignments)
 ```
+
+See [evaluation/README.md](evaluation/README.md) for detailed usage.
 
 ### 4. LLM Validation
 
@@ -153,98 +155,88 @@ gpt = OpenAITopicEvaluator()
 grok = GrokTopicEvaluator()
 
 # Evaluate topics
-claude_scores = claude.evaluate(topics)
-gpt_scores = gpt.evaluate(topics)
-grok_scores = grok.evaluate(topics)
+claude_scores = claude.evaluate_topics(topics, dataset_type='distinct')
+gpt_scores = gpt.evaluate_topics(topics, dataset_type='distinct')
+grok_scores = grok.evaluate_topics(topics, dataset_type='distinct')
 
-# Ensemble aggregation
-ensemble_score = (claude_scores + gpt_scores + grok_scores) / 3
+# Weighted ensemble
+ensemble = 0.35 * claude_scores + 0.40 * gpt_scores + 0.25 * grok_scores
 ```
 
-### 5. Reproduce 20 Newsgroups Validation (Manuscript Section 5.X)
+See [topic_llm/README.md](topic_llm/README.md) for detailed usage.
 
-This script reproduces the public dataset validation results reported in the manuscript.
+### 5. Reproduce 20 Newsgroups Validation
 
 ```bash
-# Navigate to project directory
-cd jips
-
-# Activate virtual environment
-source venv/Scripts/activate  # Windows
-source venv/bin/activate       # Linux/Mac
-
-# Run validation script
 python newsgroup/metrics_validation.py
 ```
 
-**Outputs:**
-- **LLM Alignment by Provider**: Spearman correlation and pairwise accuracy for Statistical vs Semantic metrics
-- **Label-based Separation**: Silhouette, NMI, and ARI metrics
-- **Stability Analysis**: Bootstrap coefficient of variation
-- **Per-topic Metrics**: Detailed coherence, distinctiveness, and diversity scores
+Expected results (seed=42):
+- Semantic metrics: Spearman ρ = 0.632-0.671 with LLM judgments
+- Statistical metrics: Spearman ρ = -0.108 to 0.057
+- Stability: CV 7.6% (semantic) vs 49.9% (statistical)
 
-**Expected Results (seed=42):**
+See [newsgroup/README.md](newsgroup/README.md) for detailed documentation.
+
+### 6. Validate LLM Robustness
+
+```bash
+# Quick sample validation (5 topics, ~5 minutes)
+python appendix_b/validate_appendix_b.py --mode sample
+
+# Full validation (15 topics, ~20 minutes)
+python appendix_b/validate_appendix_b.py --mode full
 ```
--- LLM Alignment by Provider (Coherence) --
-   LLM Spearman_Stat Spearman_Sem PW_Stat PW_Sem LLM_AvgCoh
-Claude        -0.108        0.632   0.500  0.600      0.786
-OpenAI        -0.105        0.667   0.400  0.700      0.772
-  Grok         0.079        0.821   0.400  0.800      0.744
 
--- Stability (Bootstrap CV of Coherence) --
-CV Stat: 49.9%, CV Sem: 7.6%
-```
+Expected results:
+- Temperature sensitivity: CV = 0.0% (complete robustness)
+- Prompt variation: CV = 0.0% (complete robustness)
 
-**Key Findings:**
-- ✅ Semantic metrics align 70% better with LLM consensus (Spearman ρ: 0.632-0.821 vs -0.108~0.079)
-- ✅ Semantic metrics are 85% more stable (CV: 7.6% vs 49.9%)
-- ✅ Pairwise accuracy favors semantic approach (60-80% vs 40-50%)
-
-**Reproducibility Notes:**
-- Random seed: 42 (fixed for CTE model and data sampling)
-- LLM temperature: 0.0 (deterministic evaluation)
-- Total API calls: 15 (5 topics × 3 LLMs, coherence only)
-- Execution time: ~2-3 minutes (depends on API response time)
+See [appendix_b/README.md](appendix_b/README.md) for detailed documentation.
 
 ## Experimental Results
 
 ### Dataset Characteristics
-| Dataset | Documents | Topics | Inter-topic Similarity | Wikipedia Date |
-|---------|-----------|--------|------------------------|----------------|
-| Distinct | 3,203 | 15 | 0.179 | Oct 12, 2025 |
-| Similar | 3,202 | 15 | 0.312 | Oct 12, 2025 |
-| More Similar | 3,203 | 15 | 0.358 | Oct 12, 2025 |
-| 20 Newsgroups | 11,314 | 20 | 0.247 | Public dataset |
+| Dataset | Documents | Topics | Inter-topic Similarity | Source |
+|---------|-----------|--------|------------------------|--------|
+| Distinct | 3,445 | 15 | 0.179 | Wikipedia (Oct 12, 2025) |
+| Similar | 2,719 | 15 | 0.312 | Wikipedia (Oct 12, 2025) |
+| More Similar | 3,444 | 15 | 0.358 | Wikipedia (Oct 12, 2025) |
+| 20 Newsgroups | 1,000 (sampled) | 5 | - | Public dataset |
 
-### Metric Discrimination (Distinct vs Similar)
-| Metric Type | Score Range | Discrimination Ratio |
-|-------------|-------------|---------------------|
-| Semantic Coherence | 0.821 → 0.456 | 33.2:1 |
-| Semantic Distinctiveness | 0.684 → 0.319 | 33.2:1 |
-| PMI (Statistical) | 1.847 → 1.824 | 11.5:1 |
-| NPMI (Statistical) | 0.189 → 0.187 | 11.5:1 |
+### Metric Discrimination
+| Metric | Method | Range | Improvement |
+|--------|--------|-------|-------------|
+| Coherence | Semantic | 0.381 | 7.62× |
+| Coherence | Statistical | 0.050 | 1.0× |
+| Distinctiveness | Semantic | 0.069 | 1.57× |
+| Distinctiveness | Statistical | 0.044 | 1.0× |
 
 ### Visualization Robustness
-| Method | Trustworthiness | Std Dev | Notes |
-|--------|----------------|---------|-------|
-| t-SNE (seed=42) | 0.9726 | 0.0002 | Excellent stability |
-| t-SNE (seed=123) | 0.9724 | - | Multi-seed validation |
-| t-SNE (seed=456) | 0.9728 | - | Multi-seed validation |
+| Method | Trustworthiness | Std Dev | Purpose |
+|--------|----------------|---------|---------|
+| t-SNE (seed=42) | 0.9726 | 0.0002 | Main results |
+| t-SNE (seed=123) | 0.9724 | - | Stability check |
+| t-SNE (seed=456) | 0.9728 | - | Stability check |
 | UMAP (seed=42) | 0.9589 | - | Alternative method |
 
 ## Configuration
 
 ### Key Parameters
 
-**Topic Modeling (`keyword_extraction.py`)**:
-- Sentence transformer: `all-MiniLM-L6-v2`
+**Embedding Model**:
+- Model: `all-MiniLM-L6-v2` (384 dimensions)
+- Max length: 512 tokens
+- Normalization: L2
+
+**Visualization**:
 - t-SNE: `perplexity=30, learning_rate=200, max_iter=1000`
 - UMAP: `n_neighbors=15, min_dist=0.1`
 
-**LLM Settings (`topic_llm/`)**:
-- Claude: `temperature=0.0, max_tokens=10`
-- GPT-4.1: `temperature=0.0, top_p=1.0`
-- Grok-4: Deterministic mode
+**LLM Settings**:
+- Claude-sonnet-4-5: `temperature=0.0, max_tokens=150`
+- GPT-4.1: `temperature=0.0, max_tokens=150`
+- Grok-4: `temperature=0.0, max_tokens=500`
 
 **Reproducibility**:
 - All experiments use `seed=42`
@@ -265,11 +257,6 @@ If you use this work in your research, please cite:
 }
 ```
 
-## License
-
-- **Code**: MIT License
-- **Documentation/Data**: CC-BY 4.0
-
 ## Requirements
 
 ### Core Dependencies
@@ -283,7 +270,6 @@ If you use this work in your research, please cite:
 ### LLM APIs
 - openai==2.3.0
 - anthropic==0.69.0
-- google-generativeai==0.8.5 (optional)
 
 See [requirements.txt](requirements.txt) for complete list.
 
@@ -320,9 +306,10 @@ Contributions are welcome! Please:
 
 ## Contact
 
-**Author**: Seog-Min Lee
-**Email**: newmind68@hs.ac.kr
-**ORCID**: https://orcid.org/0009-0009-0754-8523
+**Author**: Seog-Min Lee  
+**Email**: newmind68@hs.ac.kr  
+**ORCID**: https://orcid.org/0009-0009-0754-8523  
+**Institution**: Hanshin University, Department of Public Policy and Big Data Convergence
 
 ## Acknowledgments
 
@@ -333,43 +320,5 @@ Contributions are welcome! Please:
 
 ---
 
-**Repository**: https://github.com/LeeSeogMin/jips.git
-**Last Updated**: October 18, 2025
-
-### 6. Validate LLM Evaluation Robustness (Appendix B)
-
-This module validates the robustness of LLM-based topic evaluation across different model parameters.
-
-```bash
-# Quick sample validation (5 topics, ~5 minutes)
-cd jips
-source venv/Scripts/activate  # Windows
-python appendix_b/validate_appendix_b.py --mode sample
-
-# Full validation (15 topics, ~20 minutes)  
-python appendix_b/validate_appendix_b.py --mode full
-```
-
-**Purpose**: Address reviewer concerns about LLM evaluation sensitivity by measuring coefficient of variation (CV) across:
-- Temperature settings (T=0.0 vs T=0.7)
-- Prompt formulations (3 variants)
-
-**Expected Results** (CV < 5% indicates excellent robustness):
-```
-Temperature Sensitivity:
-  Cross-Temperature CV: 0.0% (all metrics)
-  → Perfect robustness across T=0.0 and T=0.7
-
-Prompt Variation:
-  Mean CV: 0.0% (all prompt variants)
-  → Perfect robustness across formulations
-```
-
-**Outputs**:
-- `appendix_b/output/validation_summary_*.json` - Numerical results
-- `appendix_b/output/validation_report_*.md` - Human-readable report
-
-**Documentation**:
-- See [appendix_b/README.md](appendix_b/README.md) for complete documentation
-- See [appendix_b/USAGE_GUIDE.md](appendix_b/USAGE_GUIDE.md) for quick start
-
+**Repository**: https://github.com/LeeSeogMin/jips.git  
+**Last Updated**: October 2025
