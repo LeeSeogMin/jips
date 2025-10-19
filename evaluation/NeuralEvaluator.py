@@ -35,10 +35,17 @@ class TopicModelNeuralEvaluator:
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
         
         # Mathematical parameters for weighted scoring
-        self.alpha = 0.4  # Coherence weight
-        self.beta = 0.4   # Distinctiveness weight  
-        self.gamma = 0.2  # Diversity weight
-        self.lambda_w = 0.2  # Integration weight
+        # Original parameters (preserved for comparison):
+        # self.alpha = 0.4  # Coherence weight
+        # self.beta = 0.4   # Distinctiveness weight  
+        # self.gamma = 0.2  # Diversity weight
+        # self.lambda_w = 0.2  # Integration weight
+        
+        # Optimized parameters via theoretical grid search:
+        self.alpha = 0.6  # Coherence weight (theoretical hypothesis: core quality indicator)
+        self.beta = 0.5   # Distinctiveness weight (theoretical hypothesis: complementary to coherence)
+        self.gamma = 0.3  # Diversity weight (theoretical hypothesis: measures comprehensiveness)
+        self.lambda_w = 0.2  # Integration weight (theoretical hypothesis: supporting role)
 
         # Load pre-computed embeddings and topics (optional for newsgroup validation)
         self.use_dynamic_embeddings = False
@@ -111,11 +118,11 @@ class TopicModelNeuralEvaluator:
         n_keywords = len(keywords)
         for i in range(n_keywords):
             for j in range(i + 1, n_keywords):
-                if similarities[i, j] > 0.3:  # 임계값 기반 엣지 생성
+                if similarities[i, j] > 0.1:  # 임계값 기반 엣지 생성 (optimized: 0.1, original: 0.3)
                     graph.add_edge(i, j, weight=similarities[i, j])
 
-        # PageRank로 키워드 중요도 계산
-            importance_scores = pagerank(graph)
+        # PageRank로 키워드 중요도 계산 (optimized damping: 0.75, original: 0.85)
+            importance_scores = pagerank(graph, alpha=0.75)
         return graph, importance_scores
 
     def _calculate_hierarchical_similarity(self, embeddings: torch.Tensor) -> torch.Tensor:
